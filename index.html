@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>IronLog</title>
+  <meta name="description" content="Kişisel gym takip uygulaması">
+  <meta name="theme-color" content="#0d0f12">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="IronLog">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="app" aria-live="polite"></main>
+
+  <div id="timer" class="timer" hidden>
+    <div class="t-bar"><div class="t-fill"></div></div>
+    <div class="t-row">
+      <div class="t-info">
+        <div class="t-label"></div>
+        <div class="t-time">0:00</div>
+      </div>
+      <button class="t-btn" data-act="t-minus" aria-label="15 saniye azalt">−15</button>
+      <button class="t-btn" data-act="t-plus" aria-label="15 saniye ekle">+15</button>
+      <button class="t-btn t-skip" data-act="t-skip">Geç</button>
+    </div>
+  </div>
+
+  <nav class="tabs" aria-label="Menü">
+    <button data-act="tab" data-tab="train" class="on">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h2V7h3v10H5v-3H3zm18 0h-2V7h-3v10h3v-3h2zM8 11h8v2H8z"/></svg>
+      <span>Antrenman</span>
+    </button>
+    <button data-act="tab" data-tab="history">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 1-8.5 6h2.2A7 7 0 1 0 12 5V3zm-1 4h2v5.2l3.6 2.1-1 1.7L11 13.4z"/></svg>
+      <span>Geçmiş</span>
+    </button>
+    <button data-act="tab" data-tab="settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v2H5zm0 7h14v2H5zm0 7h14v2H5z"/></svg>
+      <span>Veri</span>
+    </button>
+  </nav>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+  <input id="importFile" type="file" accept="application/json,.json" hidden>
+
+  <script src="app.js"></script>
+</body>
+</html>
