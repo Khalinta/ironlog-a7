@@ -9,8 +9,8 @@ Sunucu yok; tüm veriler telefonun kendisinde (localStorage) durur.
 - Her hareketin son ağırlık ve tekrarı görünür, ağırlıklar otomatik önerilir.
 - Tüm setler üst tekrar sınırına ulaşınca "sonraki antrenmanda ağırlığı artır" uyarısı.
 - Form ipucu ve alternatif hareket açılıp kapanır.
-- 8 haftalık plan: set sayısı ve kardiyo süresi seçilen haftaya göre değişir; 4. ve 8. haftalarda ağırlıklar %20 düşük önerilir.
-- 5 dk ısınma ve kardiyo adımları (sayaçlı).
+- 8 haftalık plan: set sayısı, kalan tekrar hedefi ve kardiyo süresi seçilen haftaya göre değişir; 4. ve 8. haftalarda "ağırlıkları yaklaşık %20 düşür" hatırlatması çıkar (ağırlıklar otomatik düşürülmez).
+- 5 dk ısınma, ilk iki harekette hazırlık seti notu ve kardiyo adımı (sayaçlı).
 - JSON yedek dışa / içe aktarma.
 
 ## Dosyalar

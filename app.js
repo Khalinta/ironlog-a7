@@ -5,72 +5,71 @@
    ========================================================= */
 
 const STORAGE_KEY = 'ironlog.v1';
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 const BIG_COUNT = 3;        // Her günün ilk 3 hareketi "büyük" hareket
 const WARMUP_MIN = 5;
-const DELOAD_FACTOR = 0.8;  // Yük azaltma haftasında %20 düşüş
 
 const WEEKS = {
-  1: { big: 2, small: 1, cardio: 10, deload: false },
-  2: { big: 2, small: 2, cardio: 12, deload: false },
-  3: { big: 3, small: 2, cardio: 15, deload: false },
-  4: { big: 2, small: 1, cardio: 15, deload: true },
-  5: { big: 3, small: 2, cardio: 15, deload: false },
-  6: { big: 3, small: 2, cardio: 18, deload: false },
-  7: { big: 3, small: 2, cardio: 20, deload: false },
-  8: { big: 2, small: 1, cardio: 15, deload: true },
+  1: { big: 2, small: 1, cardio: 10, deload: false, rir: '3–4' },
+  2: { big: 2, small: 2, cardio: 12, deload: false, rir: '3' },
+  3: { big: 3, small: 2, cardio: 15, deload: false, rir: '2–3' },
+  4: { big: 2, small: 1, cardio: 15, deload: true, rir: '4', cardioNote: 'rahat tempo' },
+  5: { big: 3, small: 2, cardio: 15, deload: false, rir: '2' },
+  6: { big: 3, small: 2, cardio: 18, deload: false, rir: '2' },
+  7: { big: 3, small: 2, cardio: 20, deload: false, rir: '1–2' },
+  8: { big: 2, small: 1, cardio: 15, deload: true, rir: '4', cardioNote: 'rahat tempo' },
 };
 
 const EX = {
   legpress: {
     name: 'Leg press', reps: [10, 12], rest: 90, weighted: true,
-    tip: 'Ayaklar platformda omuz genişliğinde. Bel ve kalça sırtlığa yapışık kalsın; inerken kalçan kalkıyorsa hareket açıklığını kısalt. Dizler ayak uçlarıyla aynı yöne baksın, yukarıda dizleri tam kilitleme.',
-    alt: 'Hack squat makinesi, goblet squat veya Smith makinesinde squat.',
+    tip: 'Ayaklarını platformda biraz yüksek koy ve belin koltuktan kalkmadan inebildiğin yerde dur.',
+    alt: 'Yerde glute bridge',
   },
   chestpress: {
     name: 'Göğüs press makinesi', reps: [10, 12], rest: 90, weighted: true,
-    tip: 'Koltuğu, tutamaçlar göğsün orta hizasına gelecek şekilde ayarla. Kürek kemiklerini geriye-aşağı sıkıştır, göğsü dik tut. İterken dirsekleri tam kilitleme; geri dönüş kontrollü (2-3 sn) olsun.',
-    alt: 'Dumbbell bench press, Smith makinesinde bench press veya şınav.',
+    tip: 'Kürek kemiklerini geriye yasla ve kollarını tam kilitlemeden it.',
+    alt: 'Pec deck makinesi',
   },
   seatedrow: {
     name: 'Oturarak row makinesi', reps: [10, 12], rest: 90, weighted: true,
-    tip: 'Göğsü pede yasla, gövde dik. Çekişe kürek kemiklerini birbirine yaklaştırarak başla, dirsekleri gövdeye yakın geriye götür. Gövdeyle savurma yapma; bırakırken beli yuvarlama.',
-    alt: 'Kablolu oturarak row, göğüs destekli dumbbell row veya tek kol dumbbell row.',
+    tip: 'Gövdeni sallamadan dirseklerini geriye çek.',
+    alt: 'Göğüs destekli row makinesi',
   },
   lateral: {
     name: 'Dumbbell lateral raise', reps: [12, 15], rest: 60, weighted: true,
-    tip: 'Hafif öne eğil, dirsekler hafif bükülü. Kolları yana, omuz hizasına kadar kaldır; hareketi dirsekler yönetsin. Omuzları kulağa doğru çekme, savurma yapma, inişi yavaş yap.',
-    alt: 'Kablolu lateral raise veya lateral raise makinesi.',
+    tip: 'Hafif dumbbell seç, dirseklerini omuz hizasına kadar kaldır ve yavaş indir.',
+    alt: 'Lateral raise makinesi',
   },
   preacher: {
     name: 'Tek kol dumbbell preacher curl', reps: [12, 15], rest: 60, weighted: true, perSide: 'her kol',
-    tip: 'Kolun arkasını pede tam yasla, koltuk altın pedin üst kenarında olsun. Kaldırırken omzu öne itme. Aşağıda kolu neredeyse tamamen aç ama dirseği kilitleme; iniş 2-3 sn sürsün. Zayıf kolla başla, diğeri aynı tekrarı yapsın.',
-    alt: 'Preacher curl makinesi, EZ bar preacher curl veya incline dumbbell curl.',
+    tip: 'Kolunu sehpaya yasla, ağırlığı yavaş indir ve en altta dirseğini kilitleme.',
+    alt: 'Oturarak dumbbell curl (sehpa doluysa da bunu yap)',
   },
   legcurl: {
     name: 'Oturarak leg curl', reps: [10, 12], rest: 90, weighted: true,
-    tip: 'Diz eklemini makinenin dönme ekseniyle hizala. Üst pedi uyluğuna sıkıca indir ki kalça kalkmasın. Topukları aşağı-geriye çek, en altta 1 sn sık, geri dönüşü yavaş yap.',
-    alt: 'Yüzüstü (lying) leg curl, Romen deadlift (RDL) veya swiss ball leg curl.',
+    tip: 'Kalçanı koltuktan kaldırmadan topuklarını alta çek.',
+    alt: 'Yerde glute bridge',
   },
   latpulldown: {
     name: 'Lat pulldown', reps: [10, 12], rest: 90, weighted: true,
-    tip: 'Uyluk pedini bacakların sıkı oturacağı şekilde ayarla. Barı omuz genişliğinden biraz geniş tut, göğsü hafif yukarı kaldır ve barı üst göğse çek. Dirsekleri aşağı-yana indirmeyi düşün; gövdeyle geriye sallanma.',
-    alt: 'Destekli barfiks makinesi, tek kol kablolu pulldown veya dar tutuş pulldown.',
+    tip: 'Tutamağı göğüsünün üstüne çek, gövdeni geriye savurma.',
+    alt: 'Kablolu düz kol pulldown',
   },
   shoulderpress: {
     name: 'Omuz press makinesi', reps: [10, 12], rest: 90, weighted: true,
-    tip: 'Koltuğu tutamaçlar omuz hizasında olacak şekilde ayarla. Sırtını sırtlığa yasla, karnını hafif sıkarak beli aşırı kavislendirme. Yukarıda dirsekleri kilitleme, inerken tutamaçlar omuz hizasına kadar gelsin.',
-    alt: 'Oturarak dumbbell shoulder press veya Smith makinesinde shoulder press.',
+    tip: 'Sırtını pedde tut ve belini kavisleyerek itme.',
+    alt: 'Daha hafif ağırlık ve daha dar hareket aralığı',
   },
   abduction: {
     name: 'Hip abduction makinesi', reps: [12, 15], rest: 60, weighted: true,
-    tip: 'Sırt dik ya da hafif öne eğik; bacakları kalçayla iterek dışa aç. En dışta 1 sn tut, geri dönüşü yavaş yap, ağırlıkların birbirine çarpmasına izin verme.',
-    alt: 'Mini bantla yan yürüyüş, yan yatarak bacak kaldırma veya kablolu hip abduction.',
+    tip: 'Sırtını sabit tut ve bacaklarını kontrollü açıp kapat.',
+    alt: 'Yan yatarak bacak açma',
   },
   deadbug: {
     name: 'Dead bug', reps: [8, 8], rest: 60, weighted: false, perSide: 'her yön',
-    tip: 'Sırtüstü yat, kollar tavana, dizler 90° ve kalçanın üstünde. Belini yere bastır ve hareket boyunca yerden kalkmasına izin verme. Karşı kol ve bacağı nefes vererek yavaşça uzat, geri getir, diğer tarafa geç. Her yön için 8 tekrar.',
-    alt: 'Bird dog, plank veya Pallof press.',
+    tip: 'Belini yere bastırırken karşı kol ve bacağı yavaşça uzat.',
+    alt: 'Sırtüstü dizler büklü, sırayla ayak dokundurma',
   },
 };
 
@@ -79,8 +78,14 @@ const DAYS = {
   B: ['legcurl', 'latpulldown', 'shoulderpress', 'abduction', 'deadbug', 'preacher'],
 };
 
-const WARMUP_TIP = 'Hafif tempoda bisiklet, eliptik veya yürüyüş. Ardından ilk hareketten hafif ağırlıkla 1-2 ısınma seti yapabilirsin (bunları kaydetmene gerek yok).';
-const CARDIO_TIP = 'Konuşabileceğin, ama şarkı söyleyemeyeceğin orta tempoda: bisiklet, eğimli yürüyüş, eliptik veya kürek.';
+const WARMUP_TIP = 'Bisiklet veya eliptikte rahat tempo.';
+const PREP_SET_NOTE = 'Hazırlık seti: Bu hareketten önce çok hafif ağırlıkla 1 set, 12 tekrar.';
+const PREP_SET_COUNT = 2; // Günün ilk iki hareketi
+const CARDIO_TIP = 'Ağırlıklardan sonra bisiklet veya eliptik. Tempo ölçüsü: Cümle kurabilmeli ama şarkı söyleyememelisin. Seans 60 dakikayı aşacaksa kardiyoyu kısalt.';
+const RIR_INFO = '"Kalan tekrar", set bittiğinde temiz formla kaç tekrar daha yapabileceğini gösterir.';
+const ALT_NOTE = 'Keskin veya batan bir ağrı olursa o hareketi bırak ve alternatifine geç. Kas yorgunluğu normaldir; eklem ağrısı değil.';
+const DELOAD_NOTE = 'Yük azaltma haftası: Bu hafta ağırlıkları yaklaşık %20 düşür.';
+const AFTER_W8_NOTE = '8. haftadan sonra 7. haftanın ağırlıklarıyla 5. haftadan yeni bir döngü başlat.';
 
 /* ---------------- Yardımcılar ---------------- */
 
@@ -90,7 +95,6 @@ const fmt = (n) => (n == null ? '–' : String(Math.round(n * 100) / 100).replac
 const repRange = (ex) => (ex.reps[0] === ex.reps[1] ? String(ex.reps[0]) : `${ex.reps[0]}-${ex.reps[1]}`);
 const isBig = (day, idx) => idx < BIG_COUNT;
 const setsFor = (week, day, idx) => (isBig(day, idx) ? WEEKS[week].big : WEEKS[week].small);
-const roundHalf = (n) => Math.round(n * 2) / 2;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 function parseNum(v, int) {
@@ -206,6 +210,7 @@ function lastEntry(exId, opts = {}) {
   for (let i = state.sessions.length - 1; i >= 0; i--) {
     const s = state.sessions[i];
     if (opts.nonDeload && s.deload) continue;
+    if (opts.week && s.week !== opts.week) continue;
     const e = s.exercises.find((x) => x.id === exId);
     if (e && doneSets(e).length) return { session: s, entry: e };
   }
@@ -225,18 +230,19 @@ function buildSession(day, week) {
   const exercises = DAYS[day].map((id, idx) => {
     const ex = EX[id];
     const n = setsFor(week, day, idx);
-    // Ağırlık önerisi: son normal (yük azaltma olmayan) hafta referans alınır
-    const ref = lastEntry(id, { nonDeload: true }) || lastEntry(id);
+    // Ağırlık önerisi: normalde son normal hafta (yük azaltma sonrası 3./7. haftanın ağırlıkları).
+    // Yük azaltma haftasında, aynı hafta önceden girilmiş (düşürülmüş) ağırlık varsa o; yoksa son normal hafta.
+    // Ağırlıklar otomatik düşürülmez, sadece hatırlatma gösterilir.
+    const ref = (deload && lastEntry(id, { week })) || lastEntry(id, { nonDeload: true }) || lastEntry(id);
+    const bump = !deload && ref && !ref.session.deload && topReached(id, ref.entry);
     const refSets = ref ? doneSets(ref.entry) : [];
     const sets = [];
     for (let j = 0; j < n; j++) {
       const rs = refSets[j] || refSets[refSets.length - 1] || null;
       let w = null;
-      if (ex.weighted && rs && rs.w != null) {
-        w = rs.w;
-        if (deload && !ref.session.deload) w = roundHalf(w * DELOAD_FACTOR);
-      }
-      const pr = rs && rs.r != null ? rs.r : ex.reps[0];
+      if (ex.weighted && rs && rs.w != null) w = rs.w;
+      // Ağırlık artırılacaksa tekrar aralığının altından başla
+      const pr = !bump && rs && rs.r != null ? rs.r : ex.reps[0];
       sets.push({ w, r: null, pr, done: false });
     }
     return { id, sets };
@@ -302,9 +308,11 @@ function renderHome() {
     <section class="card">
       <div class="row-between"><h2>Hafta ${state.week}</h2>
         ${w.deload ? '<span class="tag">Yük azaltma</span>' : ''}</div>
-      <div class="muted small" style="margin-top:4px">Büyük hareket ${w.big} set · küçük hareket ${w.small} set · kardiyo ${w.cardio} dk</div>
+      <div class="muted small" style="margin-top:4px">Büyük hareket ${w.big} set · küçük hareket ${w.small} set · kalan tekrar ${w.rir} · kardiyo ${w.cardio} dk${w.cardioNote ? ', ' + w.cardioNote : ''}</div>
       <div class="weeks">${weekBtns}</div>
-      ${w.deload ? '<div class="note blue">Bu hafta yük azaltma: önerilen ağırlıklar son normal haftanın %80’i olarak gelir.</div>' : ''}
+      <div class="note warn">Kalan tekrar: ${w.rir}. <span style="font-weight:450">${esc(RIR_INFO)}</span></div>
+      ${w.deload ? `<div class="note blue">${DELOAD_NOTE}</div>` : ''}
+      ${state.week === 8 ? `<div class="note blue">${AFTER_W8_NOTE}</div>` : ''}
     </section>
 
     <section class="card">
@@ -312,7 +320,7 @@ function renderHome() {
       <ul class="plan-list">
         <li><span>Isınma</span><span class="meta">${WARMUP_MIN} dk</span></li>
         ${items}
-        <li><span>Kardiyo</span><span class="meta">${w.cardio} dk</span></li>
+        <li><span>Kardiyo</span><span class="meta">${w.cardio} dk${w.cardioNote ? ', ' + w.cardioNote : ''}</span></li>
       </ul>
     </section>
 
@@ -340,10 +348,11 @@ function renderWorkout() {
       <div class="prog" id="prog">${done}/${total} set</div>
     </div>
     <div class="progress"><div id="progbar" style="width:${total ? (done / total) * 100 : 0}%"></div></div>
+    <div class="note warn" style="margin:0 0 12px">Kalan tekrar: ${WEEKS[cur.week].rir}. <span style="font-weight:450">${esc(RIR_INFO)}</span></div>
 
     ${renderStep('warmup', 'Isınma', `${WARMUP_MIN} dk`, cur.warmupDone, WARMUP_TIP)}
     ${exHtml}
-    ${renderStep('cardio', 'Kardiyo', `${cur.cardioMin} dk`, cur.cardioDone, CARDIO_TIP)}
+    ${renderStep('cardio', 'Kardiyo', `${cur.cardioMin} dk${WEEKS[cur.week].cardioNote ? ', ' + WEEKS[cur.week].cardioNote : ''}`, cur.cardioDone, CARDIO_TIP)}
 
     <button class="btn good" data-act="finish" style="margin-top:6px">Antrenmanı bitir ve kaydet</button>
     <button class="btn danger" data-act="cancel">Antrenmanı iptal et</button>`;
@@ -377,8 +386,8 @@ function renderExercise(cur, e, i) {
   const refNormal = lastEntry(e.id, { nonDeload: true });
 
   let lastHtml = ex.weighted
-    ? `<div class="last">İlk kez yapıyorsun. ${repRange(ex)} tekrarı düzgün formla yapabileceğin bir ağırlıkla başla.</div>`
-    : '<div class="last">İlk kez yapıyorsun. Yavaş ve kontrollü yap.</div>';
+    ? '<div class="last">Başlangıç ağırlığı: Set bittiğinde 3–4 tekrar daha yapabileceğin ağırlığı seç.</div>'
+    : '';
   if (ref) {
     const ds = doneSets(ref.entry);
     const vals = ex.weighted
@@ -388,14 +397,13 @@ function renderExercise(cur, e, i) {
   }
 
   let notes = '';
+  if (i < PREP_SET_COUNT) notes += `<div class="note blue">${PREP_SET_NOTE}</div>`;
+  if (!ex.weighted) notes += '<div class="note blue">Ağırlık ekleme; hareketi kontrollü yapmaya odaklan.</div>';
   if (!cur.deload && refNormal && topReached(e.id, refNormal.entry)) {
     const maxW = Math.max(...doneSets(refNormal.entry).map((s) => s.w || 0));
-    notes += `<div class="note warn">⬆ Geçen sefer (${fmt(maxW)} kg) tüm setlerde ${ex.reps[1]} tekrara ulaştın: bugün ağırlığı artır.</div>`;
+    notes += `<div class="note warn">⬆ Geçen sefer (${fmt(maxW)} kg) tüm setlerde ${ex.reps[1]} tekrara ulaştın: bugün makinedeki veya dumbbell'daki en küçük adım kadar ağırlık ekle ve ${ex.reps[0]} tekrardan başla.</div>`;
   }
-  if (cur.deload && ex.weighted && refNormal) {
-    const w0 = doneSets(refNormal.entry)[0].w;
-    if (w0 != null) notes += `<div class="note blue">Yük azaltma: önerilen ${fmt(roundHalf(w0 * DELOAD_FACTOR))} kg (${fmt(w0)} kg’ın %80’i).</div>`;
-  }
+  if (cur.deload && ex.weighted) notes += `<div class="note blue">${DELOAD_NOTE}</div>`;
 
   const sets = e.sets.map((s, j) => `
     <div class="set ${s.done ? 'done' : ''} ${ex.weighted ? '' : 'noweight'}">
@@ -423,7 +431,7 @@ function renderExercise(cur, e, i) {
         <button data-act="toggle" data-key="${altKey}" class="${ui.open.has(altKey) ? 'on' : ''}">Alternatif</button>
       </div>
       ${ui.open.has(tipKey) ? `<div class="infobox"><strong>Form ipucu</strong>${esc(ex.tip)}</div>` : ''}
-      ${ui.open.has(altKey) ? `<div class="infobox"><strong>Alternatif hareket</strong>${esc(ex.alt)}</div>` : ''}
+      ${ui.open.has(altKey) ? `<div class="infobox"><strong>Daha kolay alternatif</strong>${esc(ex.alt)}<div class="muted small" style="margin-top:8px">${esc(ALT_NOTE)}</div></div>` : ''}
     </article>`;
 }
 
@@ -431,7 +439,7 @@ function renderLive(cur, i) {
   if (cur.deload) return '';
   const e = cur.exercises[i];
   if (topReached(e.id, e)) {
-    return `<div class="note good">✓ Tüm setlerde ${EX[e.id].reps[1]} tekrara ulaştın! Sonraki antrenmanda ağırlığı artır.</div>`;
+    return `<div class="note good">✓ Tüm setlerde ${EX[e.id].reps[1]} tekrara ulaştın! Temiz formla yaptıysan sonraki antrenmanda en küçük adım kadar ağırlık ekle.</div>`;
   }
   return '';
 }
