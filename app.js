@@ -4,98 +4,136 @@
    IronLog – sade, çevrimdışı çalışan gym takip uygulaması
    ========================================================= */
 
-const STORAGE_KEY = 'ironlog.v1';
-const APP_VERSION = '1.1.0';
-const BIG_COUNT = 3;        // Her günün ilk 3 hareketi "büyük" hareket
+const STORAGE_KEY = 'ironlog.v1';   // Anahtar değişmez: eski kayıtlar aynı yerden okunur
+const DATA_VERSION = 2;
+const APP_VERSION = '2.0.0';
 const WARMUP_MIN = 5;
+const CARDIO_MIN = 10;
+const DELOAD_FACTOR = 0.8;          // "Bu hafta yük azalt": ağırlık hedefi ~%20 düşük
+const DELOAD_RIR = '4';
+const LONG_BREAK_DAYS = 7;
+const WAIST_EVERY_DAYS = 14;
+const ADDED_FROM_WEEK = 5;
 
+/* Haftalık plan: ana = günün ilk üç hareketi, küçük = lateral raise / preacher curl / dead bug,
+   eklenen = 5. haftadan itibaren başlayan hareketler. */
 const WEEKS = {
-  1: { big: 2, small: 1, cardio: 10, deload: false, rir: '3–4' },
-  2: { big: 2, small: 2, cardio: 12, deload: false, rir: '3' },
-  3: { big: 3, small: 2, cardio: 15, deload: false, rir: '2–3' },
-  4: { big: 2, small: 1, cardio: 15, deload: true, rir: '4', cardioNote: 'rahat tempo' },
-  5: { big: 3, small: 2, cardio: 15, deload: false, rir: '2' },
-  6: { big: 3, small: 2, cardio: 18, deload: false, rir: '2' },
-  7: { big: 3, small: 2, cardio: 20, deload: false, rir: '1–2' },
-  8: { big: 2, small: 1, cardio: 15, deload: true, rir: '4', cardioNote: 'rahat tempo' },
+  1: { main: 2, small: 1, added: 0, rir: '3–4' },
+  2: { main: 2, small: 2, added: 0, rir: '3' },
+  3: { main: 3, small: 2, added: 0, rir: '2–3' },
+  4: { main: 3, small: 2, added: 0, rir: '2' },
+  5: { main: 3, small: 2, added: 2, rir: '2' },
+  6: { main: 3, small: 2, added: 2, rir: '1–2' },
+  7: { main: 3, small: 2, added: 2, rir: '1–2' },
+  8: { main: 3, small: 2, added: 2, rir: '1–2' },
 };
 
 const EX = {
   legpress: {
-    name: 'Leg press', reps: [10, 12], rest: 90, weighted: true,
+    name: 'Leg press', weighted: true, noFailure: true,
     tip: 'Ayaklarını platformda biraz yüksek koy ve belin koltuktan kalkmadan inebildiğin yerde dur.',
-    alt: 'Yerde glute bridge',
+    alt: 'Daha hafif ağırlık ve daha dar hareket aralığı',
   },
   chestpress: {
-    name: 'Göğüs press makinesi', reps: [10, 12], rest: 90, weighted: true,
+    name: 'Göğüs press makinesi', weighted: true, noFailure: true,
     tip: 'Kürek kemiklerini geriye yasla ve kollarını tam kilitlemeden it.',
     alt: 'Pec deck makinesi',
   },
   seatedrow: {
-    name: 'Oturarak row makinesi', reps: [10, 12], rest: 90, weighted: true,
+    name: 'Oturarak row makinesi', weighted: true,
     tip: 'Gövdeni sallamadan dirseklerini geriye çek.',
     alt: 'Göğüs destekli row makinesi',
   },
   lateral: {
-    name: 'Dumbbell lateral raise', reps: [12, 15], rest: 60, weighted: true,
+    name: 'Dumbbell lateral raise', weighted: true, lastSetNote: true,
     tip: 'Hafif dumbbell seç, dirseklerini omuz hizasına kadar kaldır ve yavaş indir.',
     alt: 'Lateral raise makinesi',
   },
   preacher: {
-    name: 'Tek kol dumbbell preacher curl', reps: [12, 15], rest: 60, weighted: true, perSide: 'her kol',
+    name: 'Tek kol dumbbell preacher curl', weighted: true, perSide: 'her kol', lastSetNote: true,
     tip: 'Kolunu sehpaya yasla, ağırlığı yavaş indir ve en altta dirseğini kilitleme.',
     alt: 'Oturarak dumbbell curl (sehpa doluysa da bunu yap)',
   },
   legcurl: {
-    name: 'Oturarak leg curl', reps: [10, 12], rest: 90, weighted: true,
+    name: 'Oturarak leg curl', weighted: true,
     tip: 'Kalçanı koltuktan kaldırmadan topuklarını alta çek.',
-    alt: 'Yerde glute bridge',
+    alt: 'Daha hafif ağırlık ve daha dar hareket aralığı',
   },
   latpulldown: {
-    name: 'Lat pulldown', reps: [10, 12], rest: 90, weighted: true,
-    tip: 'Tutamağı göğüsünün üstüne çek, gövdeni geriye savurma.',
+    name: 'Lat pulldown', weighted: true,
+    tip: 'Tutamağı göğsünün üstüne çek, gövdeni geriye savurma.',
     alt: 'Kablolu düz kol pulldown',
   },
   shoulderpress: {
-    name: 'Omuz press makinesi', reps: [10, 12], rest: 90, weighted: true,
+    name: 'Omuz press makinesi', weighted: true, noFailure: true,
     tip: 'Sırtını pedde tut ve belini kavisleyerek itme.',
     alt: 'Daha hafif ağırlık ve daha dar hareket aralığı',
   },
-  abduction: {
-    name: 'Hip abduction makinesi', reps: [12, 15], rest: 60, weighted: true,
-    tip: 'Sırtını sabit tut ve bacaklarını kontrollü açıp kapat.',
-    alt: 'Yan yatarak bacak açma',
-  },
   deadbug: {
-    name: 'Dead bug', reps: [8, 8], rest: 60, weighted: false, perSide: 'her yön',
+    name: 'Dead bug', weighted: false, perSide: 'her yön',
     tip: 'Belini yere bastırırken karşı kol ve bacağı yavaşça uzat.',
-    alt: 'Sırtüstü dizler büklü, sırayla ayak dokundurma',
+    alt: 'Sırtüstü dizler bükülü, sırayla ayak dokundurma',
   },
+  // Programdan çıkarıldı; sadece eski kayıtların geçmişte görünmesi için duruyor.
+  abduction: { name: 'Hip abduction makinesi', weighted: true, retired: true, tip: '', alt: '' },
 };
 
-const DAYS = {
-  A: ['legpress', 'chestpress', 'seatedrow', 'lateral', 'preacher'],
-  B: ['legcurl', 'latpulldown', 'shoulderpress', 'abduction', 'deadbug', 'preacher'],
+/* Aktif program. kind: main | small | added */
+const PROGRAM = {
+  A: [
+    { id: 'legpress', kind: 'main', reps: [8, 12], rest: 90 },
+    { id: 'chestpress', kind: 'main', reps: [8, 12], rest: 90 },
+    { id: 'seatedrow', kind: 'main', reps: [8, 12], rest: 90 },
+    { id: 'legcurl', kind: 'added', reps: [10, 15], rest: 75 },
+    { id: 'lateral', kind: 'small', reps: [12, 20], rest: 60 },
+    { id: 'preacher', kind: 'small', reps: [12, 20], rest: 60 },
+  ],
+  B: [
+    { id: 'legcurl', kind: 'main', reps: [8, 12], rest: 90 },
+    { id: 'latpulldown', kind: 'main', reps: [8, 12], rest: 90 },
+    { id: 'shoulderpress', kind: 'main', reps: [8, 12], rest: 90 },
+    { id: 'legpress', kind: 'added', reps: [10, 15], rest: 90 },
+    { id: 'chestpress', kind: 'added', reps: [8, 12], rest: 90 },
+    { id: 'deadbug', kind: 'small', reps: [8, 10], rest: 60 },
+    { id: 'preacher', kind: 'small', reps: [12, 20], rest: 60 },
+  ],
 };
 
-const WARMUP_TIP = 'Bisiklet veya eliptikte rahat tempo.';
-const PREP_SET_NOTE = 'Hazırlık seti: Bu hareketten önce çok hafif ağırlıkla 1 set, 12 tekrar.';
+/* Önceki sürümün değerleri: eski kayıtlarda tekrar aralığı/dinlenme saklanmadığı için bunlar kullanılır. */
+const LEGACY = {
+  legpress: { kind: 'main', reps: [10, 12], rest: 90 },
+  chestpress: { kind: 'main', reps: [10, 12], rest: 90 },
+  seatedrow: { kind: 'main', reps: [10, 12], rest: 90 },
+  legcurl: { kind: 'main', reps: [10, 12], rest: 90 },
+  latpulldown: { kind: 'main', reps: [10, 12], rest: 90 },
+  shoulderpress: { kind: 'main', reps: [10, 12], rest: 90 },
+  lateral: { kind: 'small', reps: [12, 15], rest: 60 },
+  preacher: { kind: 'small', reps: [12, 15], rest: 60 },
+  abduction: { kind: 'small', reps: [12, 15], rest: 60 },
+  deadbug: { kind: 'small', reps: [8, 8], rest: 60 },
+};
+
+const WARMUP_TIP = 'Başta 5 dk rahat bisiklet veya eliptik.';
+const PREP_SET_NOTE = 'Hazırlık seti: Bu hareketten önce çok hafif ağırlıkla 1 set, 12 tekrar. Bu seti kaydetme; kayıtlara ve ağırlık artırma hesabına girmez.';
 const PREP_SET_COUNT = 2; // Günün ilk iki hareketi
-const CARDIO_TIP = 'Ağırlıklardan sonra bisiklet veya eliptik. Tempo ölçüsü: Cümle kurabilmeli ama şarkı söyleyememelisin. Seans 60 dakikayı aşacaksa kardiyoyu kısalt.';
+const CARDIO_TIP = 'Sonda 10 dk orta tempo bisiklet veya eliptik. Seans 60 dakikayı aşacaksa önce kardiyoyu kısalt.';
 const RIR_INFO = '"Kalan tekrar", set bittiğinde temiz formla kaç tekrar daha yapabileceğini gösterir.';
-const ALT_NOTE = 'Keskin veya batan bir ağrı olursa o hareketi bırak ve alternatifine geç. Kas yorgunluğu normaldir; eklem ağrısı değil.';
-const DELOAD_NOTE = 'Yük azaltma haftası: Bu hafta ağırlıkları yaklaşık %20 düşür.';
-const AFTER_W8_NOTE = '8. haftadan sonra 7. haftanın ağırlıklarıyla 5. haftadan yeni bir döngü başlat.';
+const ALT_NOTE = 'Keskin veya batan bir ağrı olursa o hareketi bırak ve alternatifine geç.';
+const NO_FAILURE_NOTE = 'Tam tükenişe gitme.';
+const LAST_SET_NOTE = 'Son set 0-1 tekrar kala bitebilir.';
+const LONG_BREAK_NOTE = '7 günden uzun ara verdin. İlk antrenmanda ağırlıkları yaklaşık %10 azalt.';
+const DELOAD_INFO = 'Performansın iki antrenman üst üste düşerse, eklem rahatsızlığın artarsa veya toparlanamazsan kullan.';
 
 /* ---------------- Yardımcılar ---------------- */
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (n) => (n == null ? '–' : String(Math.round(n * 100) / 100).replace('.', ','));
-const repRange = (ex) => (ex.reps[0] === ex.reps[1] ? String(ex.reps[0]) : `${ex.reps[0]}-${ex.reps[1]}`);
-const isBig = (day, idx) => idx < BIG_COUNT;
-const setsFor = (week, day, idx) => (isBig(day, idx) ? WEEKS[week].big : WEEKS[week].small);
+const rangeText = (reps) => (reps[0] === reps[1] ? String(reps[0]) : `${reps[0]}-${reps[1]}`);
+const sameRange = (a, b) => a[0] === b[0] && a[1] === b[1];
+const roundHalf = (n) => Math.round(n * 2) / 2;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const DAY_MS = 86400000;
 
 function parseNum(v, int) {
   if (v == null) return null;
@@ -107,7 +145,7 @@ function parseNum(v, int) {
 }
 
 function fmtDate(iso, withWeekday) {
-  const d = new Date(iso);
+  const d = new Date(iso.length === 10 ? iso + 'T12:00:00' : iso);
   if (isNaN(d)) return '';
   const opts = { day: 'numeric', month: 'short' };
   if (withWeekday) opts.weekday = 'short';
@@ -115,12 +153,29 @@ function fmtDate(iso, withWeekday) {
   return d.toLocaleDateString('tr-TR', opts);
 }
 
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Programdaki set sayısı. Yük azaltmada yarıya iner, en az 1 kalır. */
+function setsFor(week, kind, deload) {
+  const n = WEEKS[week][kind] || 0;
+  if (!n) return 0;
+  return deload ? Math.max(1, Math.floor(n / 2)) : n;
+}
+
+/** O hafta yapılacak hareketler (eklenen hareketler 5. haftadan itibaren). */
+function slotsFor(day, week) {
+  return PROGRAM[day].filter((sl) => WEEKS[week][sl.kind] > 0);
+}
+
 const CHECK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 
 /* ---------------- Durum (localStorage) ---------------- */
 
 function defaultState() {
-  return { version: 1, week: 1, sessions: [], current: null, timer: null };
+  return { version: DATA_VERSION, week: 1, deloadMode: false, sessions: [], current: null, timer: null, body: [], waist: [] };
 }
 
 function normSet(s) {
@@ -129,7 +184,25 @@ function normSet(s) {
     w: parseNum(s.w),
     r: parseNum(s.r, true),
     pr: parseNum(s.pr, true),
+    pw: parseNum(s.pw),
     done: !!s.done,
+  };
+}
+
+function validRange(r) {
+  return Array.isArray(r) && r.length === 2 && r.every((x) => Number.isInteger(x) && x > 0 && x < 100) && r[0] <= r[1];
+}
+
+function normEntry(e) {
+  if (!e || !EX[e.id] || !Array.isArray(e.sets)) return null;
+  const legacy = LEGACY[e.id];
+  return {
+    id: e.id,
+    kind: ['main', 'small', 'added'].includes(e.kind) ? e.kind : legacy.kind,
+    reps: validRange(e.reps) ? [e.reps[0], e.reps[1]] : legacy.reps.slice(),
+    rest: parseNum(e.rest, true) || legacy.rest,
+    bump: parseNum(e.bump),
+    sets: e.sets.map(normSet).filter(Boolean),
   };
 }
 
@@ -137,23 +210,31 @@ function normSession(s) {
   if (!s || typeof s !== 'object') return null;
   if (s.day !== 'A' && s.day !== 'B') return null;
   const week = WEEKS[s.week] ? Number(s.week) : 1;
-  const exercises = Array.isArray(s.exercises)
-    ? s.exercises
-        .filter((e) => e && EX[e.id] && Array.isArray(e.sets))
-        .map((e) => ({ id: e.id, sets: e.sets.map(normSet).filter(Boolean) }))
-    : [];
   return {
     id: typeof s.id === 'string' ? s.id : uid(),
     day: s.day,
     week,
-    deload: WEEKS[week].deload,
+    deload: !!s.deload,
+    longBreak: !!s.longBreak,
     startedAt: typeof s.startedAt === 'string' ? s.startedAt : new Date().toISOString(),
     finishedAt: typeof s.finishedAt === 'string' ? s.finishedAt : null,
     warmupDone: !!s.warmupDone,
     cardioDone: !!s.cardioDone,
-    cardioMin: parseNum(s.cardioMin, true) || WEEKS[week].cardio,
-    exercises,
+    cardioMin: parseNum(s.cardioMin, true) || CARDIO_MIN,
+    exercises: Array.isArray(s.exercises) ? s.exercises.map(normEntry).filter(Boolean) : [],
   };
+}
+
+function normMeasures(list, key, max) {
+  if (!Array.isArray(list)) return [];
+  const byDate = new Map();
+  list.forEach((m) => {
+    if (!m || typeof m.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(m.date)) return;
+    const v = parseNum(m[key]);
+    if (v == null || v <= 0 || v > max) return;
+    byDate.set(m.date, { date: m.date, [key]: v });
+  });
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function normalize(raw) {
@@ -161,6 +242,7 @@ function normalize(raw) {
   if (!Array.isArray(raw.sessions)) throw new Error('Yedekte antrenman listesi yok');
   const st = defaultState();
   st.week = WEEKS[raw.week] ? Number(raw.week) : 1;
+  st.deloadMode = !!raw.deloadMode;
   st.sessions = raw.sessions.map(normSession).filter((s) => s && s.finishedAt);
   st.sessions.sort((a, b) => a.finishedAt.localeCompare(b.finishedAt));
   st.current = raw.current ? normSession(raw.current) : null;
@@ -168,6 +250,8 @@ function normalize(raw) {
   if (raw.timer && typeof raw.timer === 'object' && Number.isFinite(raw.timer.end)) {
     st.timer = { end: raw.timer.end, total: Number(raw.timer.total) || 60, label: String(raw.timer.label || '') };
   }
+  st.body = normMeasures(raw.body, 'kg', 500);
+  st.waist = normMeasures(raw.waist, 'cm', 300);
   return st;
 }
 
@@ -176,7 +260,12 @@ function load() {
   try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { return defaultState(); }
   if (!raw) return defaultState();
   try {
-    return normalize(JSON.parse(raw));
+    const parsed = JSON.parse(raw);
+    // Sürüm yükseltmeden önce eski verinin bir kopyasını sakla (bir kez)
+    if ((parsed.version || 1) < DATA_VERSION) {
+      try { localStorage.setItem(STORAGE_KEY + '.backup-v' + (parsed.version || 1), raw); } catch (_) {}
+    }
+    return normalize(parsed);
   } catch (e) {
     // Bozuk veri: silmeden kenara al
     try { localStorage.setItem(STORAGE_KEY + '.corrupt.' + Date.now(), raw); } catch (_) {}
@@ -205,52 +294,63 @@ function doneSets(entry) {
   return entry ? entry.sets.filter((s) => s.done) : [];
 }
 
-/** En son yapılan (tamamlanmış set içeren) kayıt. opts.nonDeload: yük azaltma haftalarını atla */
-function lastEntry(exId, opts = {}) {
+/** En son yapılan (tamamlanmış set içeren) kayıt; pred(session, entry) ile süzülür. */
+function lastEntry(exId, pred = () => true) {
   for (let i = state.sessions.length - 1; i >= 0; i--) {
     const s = state.sessions[i];
-    if (opts.nonDeload && s.deload) continue;
-    if (opts.week && s.week !== opts.week) continue;
     const e = s.exercises.find((x) => x.id === exId);
-    if (e && doneSets(e).length) return { session: s, entry: e };
+    if (e && doneSets(e).length && pred(s, e)) return { session: s, entry: e };
   }
   return null;
 }
 
-function topReached(exId, entry) {
-  const ex = EX[exId];
-  if (!ex.weighted || !entry || !entry.sets.length) return false;
-  return entry.sets.every((s) => s.done && s.r != null && s.r >= ex.reps[1]);
+/** Ağırlık önerisi ve artırma hesabı için referans: yük azaltma kayıtları hiç kullanılmaz.
+    Önce aynı tekrar aralığındaki son kayıt (ör. A'daki leg press 8-12 ile B'deki 10-15 ayrı tutulur), yoksa aynı hareketin son kaydı. */
+function progressRef(exId, reps) {
+  return lastEntry(exId, (s, e) => !s.deload && sameRange(e.reps, reps)) || lastEntry(exId, (s) => !s.deload);
+}
+
+/** O kaydın bütün setleri (o haftanın set sayısı kadar) tamamlanmış ve hepsi üst sınıra ulaşmış mı? */
+function reachedTop(exId, entry, top) {
+  if (!EX[exId].weighted || !entry || !entry.sets.length) return false;
+  return entry.sets.every((s) => s.done && s.r != null && s.r >= top);
+}
+
+function daysSinceLast(now = Date.now()) {
+  const last = state.sessions[state.sessions.length - 1];
+  if (!last) return null;
+  return (now - new Date(last.finishedAt).getTime()) / DAY_MS;
 }
 
 /* ---------------- Antrenman başlatma ---------------- */
 
-function buildSession(day, week) {
-  const deload = WEEKS[week].deload;
-  const exercises = DAYS[day].map((id, idx) => {
-    const ex = EX[id];
-    const n = setsFor(week, day, idx);
-    // Ağırlık önerisi: normalde son normal hafta (yük azaltma sonrası 3./7. haftanın ağırlıkları).
-    // Yük azaltma haftasında, aynı hafta önceden girilmiş (düşürülmüş) ağırlık varsa o; yoksa son normal hafta.
-    // Ağırlıklar otomatik düşürülmez, sadece hatırlatma gösterilir.
-    const ref = (deload && lastEntry(id, { week })) || lastEntry(id, { nonDeload: true }) || lastEntry(id);
-    const bump = !deload && ref && !ref.session.deload && topReached(id, ref.entry);
+function buildSession(day, week, deload) {
+  const gap = daysSinceLast();
+  const exercises = slotsFor(day, week).map((sl) => {
+    const ex = EX[sl.id];
+    const [lo, hi] = sl.reps;
+    const n = setsFor(week, sl.kind, deload);
+    const ref = progressRef(sl.id, sl.reps);
     const refSets = ref ? doneSets(ref.entry) : [];
+    const bump = !deload && ref && reachedTop(sl.id, ref.entry, hi)
+      ? Math.max(...refSets.map((s) => s.w || 0)) : null;
     const sets = [];
     for (let j = 0; j < n; j++) {
       const rs = refSets[j] || refSets[refSets.length - 1] || null;
-      let w = null;
-      if (ex.weighted && rs && rs.w != null) w = rs.w;
-      // Ağırlık artırılacaksa tekrar aralığının altından başla
-      const pr = !bump && rs && rs.r != null ? rs.r : ex.reps[0];
-      sets.push({ w, r: null, pr, done: false });
+      let w = ex.weighted && rs && rs.w != null ? rs.w : null;
+      let pw = null;
+      if (deload && w != null) { pw = roundHalf(w * DELOAD_FACTOR); w = null; }
+      // Ağırlık artırılacaksa hedef aralığın altı; değilse son tekrar (aralık içinde)
+      const pr = bump == null && rs && rs.r != null ? Math.min(hi, Math.max(lo, rs.r)) : lo;
+      sets.push({ w, r: null, pr, pw, done: false });
     }
-    return { id, sets };
+    return { id: sl.id, kind: sl.kind, reps: [lo, hi], rest: sl.rest, bump, sets };
   });
   return {
     id: uid(), day, week, deload,
+    longBreak: gap != null && gap > LONG_BREAK_DAYS,
     startedAt: new Date().toISOString(), finishedAt: null,
-    warmupDone: false, cardioDone: false, cardioMin: WEEKS[week].cardio,
+    warmupDone: false, cardioDone: false, cardioMin: CARDIO_MIN,
     exercises,
   };
 }
@@ -270,26 +370,36 @@ function render() {
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === ui.tab));
   const app = $('#app');
   if (ui.tab === 'history') app.innerHTML = renderHistory();
+  else if (ui.tab === 'track') app.innerHTML = renderTrack();
   else if (ui.tab === 'settings') app.innerHTML = renderSettings();
   else app.innerHTML = state.current ? renderWorkout() : renderHome();
   updateWakeLock();
+}
+
+function rirFor(week, deload) {
+  return deload ? DELOAD_RIR : WEEKS[week].rir;
 }
 
 function renderHome() {
   const auto = nextDayAuto();
   const day = ui.dayChoice || auto;
   const w = WEEKS[state.week];
+  const dl = state.deloadMode;
   const last = state.sessions[state.sessions.length - 1];
+  const gap = daysSinceLast();
 
   const weekBtns = Object.keys(WEEKS).map((k) => `
-    <button data-act="week" data-week="${k}" class="${Number(k) === state.week ? 'on' : ''}" aria-label="Hafta ${k}${WEEKS[k].deload ? ', yük azaltma' : ''}">
-      ${k}${WEEKS[k].deload ? '<span class="dl">↓</span>' : ''}
-    </button>`).join('');
+    <button data-act="week" data-week="${k}" class="${Number(k) === state.week ? 'on' : ''}" aria-label="Hafta ${k}">${k}</button>`).join('');
 
-  const items = DAYS[day].map((id, idx) => {
-    const ex = EX[id];
-    return `<li><span>${esc(ex.name)}</span><span class="meta">${setsFor(state.week, day, idx)} × ${repRange(ex)}${ex.perSide ? ' ' + ex.perSide : ''}</span></li>`;
+  const items = PROGRAM[day].map((sl) => {
+    const ex = EX[sl.id];
+    const n = setsFor(state.week, sl.kind, dl);
+    const side = ex.perSide ? ' ' + ex.perSide : '';
+    if (!n) return `<li class="off"><span>${esc(ex.name)}</span><span class="meta">${ADDED_FROM_WEEK}. haftadan itibaren</span></li>`;
+    return `<li><span>${esc(ex.name)}</span><span class="meta">${n} × ${rangeText(sl.reps)}${side}</span></li>`;
   }).join('');
+
+  const addedTxt = w.added ? `eklenen ${setsFor(state.week, 'added', dl)} set` : 'eklenen yok';
 
   return `
     <h1 class="page-title">IronLog</h1>
@@ -303,16 +413,24 @@ function renderHome() {
         ${last ? `Son antrenman: ${last.day} günü, ${fmtDate(last.finishedAt, true)}. ` : 'Henüz kayıtlı antrenman yok. '}
         Otomatik sıra: <b>${auto}</b>${ui.dayChoice && ui.dayChoice !== auto ? ' (elle değiştirdin)' : ''}
       </div>
+      ${gap != null && gap > LONG_BREAK_DAYS ? `<div class="note warn">${LONG_BREAK_NOTE}</div>` : ''}
     </section>
 
     <section class="card">
       <div class="row-between"><h2>Hafta ${state.week}</h2>
-        ${w.deload ? '<span class="tag">Yük azaltma</span>' : ''}</div>
-      <div class="muted small" style="margin-top:4px">Büyük hareket ${w.big} set · küçük hareket ${w.small} set · kalan tekrar ${w.rir} · kardiyo ${w.cardio} dk${w.cardioNote ? ', ' + w.cardioNote : ''}</div>
+        ${dl ? '<span class="tag">Yük azaltma açık</span>' : ''}</div>
+      <div class="muted small" style="margin-top:4px">Ana ${setsFor(state.week, 'main', dl)} set · küçük ${setsFor(state.week, 'small', dl)} set · ${addedTxt} · kardiyo ${CARDIO_MIN} dk</div>
       <div class="weeks">${weekBtns}</div>
-      <div class="note warn">Kalan tekrar: ${w.rir}. <span style="font-weight:450">${esc(RIR_INFO)}</span></div>
-      ${w.deload ? `<div class="note blue">${DELOAD_NOTE}</div>` : ''}
-      ${state.week === 8 ? `<div class="note blue">${AFTER_W8_NOTE}</div>` : ''}
+      <div class="note warn">Kalan tekrar: ${rirFor(state.week, dl)}. <span style="font-weight:450">${esc(RIR_INFO)}</span></div>
+    </section>
+
+    <section class="card">
+      <div class="row-between">
+        <h2>Bu hafta yük azalt</h2>
+        <button class="switch ${dl ? 'on' : ''}" data-act="deload" role="switch" aria-checked="${dl}" aria-label="Bu hafta yük azalt"><span></span></button>
+      </div>
+      <p class="muted small" style="margin:8px 0 0">${esc(DELOAD_INFO)}</p>
+      ${dl ? '<div class="note blue">Açık: ağırlık hedefi yaklaşık %20 düşük gösterilir, set sayıları yarıya iner (en az 1), kalan tekrar 4. Bu kayıtlar ağırlık artırma önerisini etkilemez. Kapatınca program kaldığı yerden devam eder.</div>' : ''}
     </section>
 
     <section class="card">
@@ -320,7 +438,7 @@ function renderHome() {
       <ul class="plan-list">
         <li><span>Isınma</span><span class="meta">${WARMUP_MIN} dk</span></li>
         ${items}
-        <li><span>Kardiyo</span><span class="meta">${w.cardio} dk${w.cardioNote ? ', ' + w.cardioNote : ''}</span></li>
+        <li><span>Kardiyo</span><span class="meta">${CARDIO_MIN} dk</span></li>
       </ul>
     </section>
 
@@ -348,11 +466,12 @@ function renderWorkout() {
       <div class="prog" id="prog">${done}/${total} set</div>
     </div>
     <div class="progress"><div id="progbar" style="width:${total ? (done / total) * 100 : 0}%"></div></div>
-    <div class="note warn" style="margin:0 0 12px">Kalan tekrar: ${WEEKS[cur.week].rir}. <span style="font-weight:450">${esc(RIR_INFO)}</span></div>
+    <div class="note warn" style="margin:0 0 12px">Kalan tekrar: ${rirFor(cur.week, cur.deload)}. <span style="font-weight:450">${esc(RIR_INFO)}</span></div>
+    ${cur.longBreak ? `<div class="note warn" style="margin:0 0 12px">${LONG_BREAK_NOTE}</div>` : ''}
 
     ${renderStep('warmup', 'Isınma', `${WARMUP_MIN} dk`, cur.warmupDone, WARMUP_TIP)}
     ${exHtml}
-    ${renderStep('cardio', 'Kardiyo', `${cur.cardioMin} dk${WEEKS[cur.week].cardioNote ? ', ' + WEEKS[cur.week].cardioNote : ''}`, cur.cardioDone, CARDIO_TIP)}
+    ${renderStep('cardio', 'Kardiyo', `${cur.cardioMin} dk`, cur.cardioDone, CARDIO_TIP)}
 
     <button class="btn good" data-act="finish" style="margin-top:6px">Antrenmanı bitir ve kaydet</button>
     <button class="btn danger" data-act="cancel">Antrenmanı iptal et</button>`;
@@ -382,43 +501,45 @@ function renderStep(kind, title, dur, done, tip) {
 
 function renderExercise(cur, e, i) {
   const ex = EX[e.id];
-  const ref = lastEntry(e.id);
-  const refNormal = lastEntry(e.id, { nonDeload: true });
+  // "Son" satırı: önce aynı tekrar aralığındaki son kayıt, yoksa hareketin son kaydı (yük azaltma dahil)
+  const ref = lastEntry(e.id, (s, x) => sameRange(x.reps, e.reps)) || lastEntry(e.id);
 
-  let lastHtml = ex.weighted
-    ? '<div class="last">Başlangıç ağırlığı: Set bittiğinde 3–4 tekrar daha yapabileceğin ağırlığı seç.</div>'
-    : '';
+  let lastHtml = '';
   if (ref) {
     const ds = doneSets(ref.entry);
     const vals = ex.weighted
       ? ds.map((s) => `${fmt(s.w)} kg × ${fmt(s.r)}`).join(' · ')
       : ds.map((s) => `${fmt(s.r)} tekrar`).join(' · ');
-    lastHtml = `<div class="last">Son: <b>${vals}</b> <span>(${fmtDate(ref.session.finishedAt)}${ref.session.deload ? ', yük azaltma' : ''})</span></div>`;
+    lastHtml = `<div class="last">Son: <b>${vals}</b> <span>(${fmtDate(ref.session.finishedAt)}, ${ref.session.day} günü${ref.session.deload ? ', yük azaltma' : ''})</span></div>`;
   }
 
   let notes = '';
   if (i < PREP_SET_COUNT) notes += `<div class="note blue">${PREP_SET_NOTE}</div>`;
-  if (!ex.weighted) notes += '<div class="note blue">Ağırlık ekleme; hareketi kontrollü yapmaya odaklan.</div>';
-  if (!cur.deload && refNormal && topReached(e.id, refNormal.entry)) {
-    const maxW = Math.max(...doneSets(refNormal.entry).map((s) => s.w || 0));
-    notes += `<div class="note warn">⬆ Geçen sefer (${fmt(maxW)} kg) tüm setlerde ${ex.reps[1]} tekrara ulaştın: bugün makinedeki veya dumbbell'daki en küçük adım kadar ağırlık ekle ve ${ex.reps[0]} tekrardan başla.</div>`;
+  if (e.bump != null && !cur.deload) {
+    notes += `<div class="note warn">⬆ En küçük ağırlık adımını ekle. Geçen sefer ${fmt(e.bump)} kg ile tüm setlerde ${e.reps[1]} tekrara ulaştın; yeni ağırlıkta hedef ${e.reps[0]} tekrar.</div>`;
   }
-  if (cur.deload && ex.weighted) notes += `<div class="note blue">${DELOAD_NOTE}</div>`;
+  if (cur.deload && ex.weighted) {
+    const pw = e.sets.find((s) => s.pw != null);
+    notes += `<div class="note blue">Yük azaltma: ağırlık hedefi yaklaşık %20 düşük${pw ? ` (≈${fmt(pw.pw)} kg)` : ''}. Gri öneri, tike basınca kaydedilir.</div>`;
+  }
+  if (ex.noFailure) notes += `<div class="note blue">${NO_FAILURE_NOTE}</div>`;
+  if (ex.lastSetNote && cur.week >= 6 && !cur.deload) notes += `<div class="note blue">${LAST_SET_NOTE}</div>`;
 
   const sets = e.sets.map((s, j) => `
     <div class="set ${s.done ? 'done' : ''} ${ex.weighted ? '' : 'noweight'}">
       <span class="n">${j + 1}</span>
-      ${ex.weighted ? `<label class="fld"><input data-ex="${i}" data-set="${j}" data-f="w" type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" value="${s.w == null ? '' : fmt(s.w)}" placeholder="–" aria-label="Set ${j + 1} ağırlık"></label>` : ''}
-      <label class="fld"><input data-ex="${i}" data-set="${j}" data-f="r" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" value="${s.r == null ? '' : s.r}" placeholder="${s.pr ?? ex.reps[0]}" aria-label="Set ${j + 1} tekrar"></label>
+      ${ex.weighted ? `<label class="fld"><input data-ex="${i}" data-set="${j}" data-f="w" type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" value="${s.w == null ? '' : fmt(s.w)}" placeholder="${s.pw != null ? fmt(s.pw) : '–'}" aria-label="Set ${j + 1} ağırlık"></label>` : ''}
+      <label class="fld"><input data-ex="${i}" data-set="${j}" data-f="r" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" value="${s.r == null ? '' : s.r}" placeholder="${s.pr ?? e.reps[0]}" aria-label="Set ${j + 1} tekrar"></label>
       <button class="chk" data-act="check" data-ex="${i}" data-set="${j}" aria-label="Set ${j + 1} tamam">${CHECK_SVG}</button>
     </div>`).join('');
 
   const tipKey = `tip-${i}`, altKey = `alt-${i}`;
   const allDone = e.sets.length && e.sets.every((s) => s.done);
+  const kindLabel = e.kind === 'added' ? ' <span class="tag">Eklenen</span>' : '';
   return `
     <article class="card ex ${allDone ? 'all-done' : ''}" id="ex-${i}">
-      <div class="ex-head"><h3>${esc(ex.name)}</h3></div>
-      <div class="ex-meta">${e.sets.length} set × ${repRange(ex)} tekrar${ex.perSide ? ' (' + ex.perSide + ')' : ''} · ${ex.rest} sn dinlenme</div>
+      <div class="ex-head"><h3>${esc(ex.name)}${kindLabel}</h3></div>
+      <div class="ex-meta">${e.sets.length} set × ${rangeText(e.reps)} tekrar${ex.perSide ? ' (' + ex.perSide + ')' : ''} · ${e.rest} sn dinlenme</div>
       ${lastHtml}
       ${notes}
       <div class="sets">
@@ -426,20 +547,21 @@ function renderExercise(cur, e, i) {
         ${sets}
       </div>
       <div class="ex-live" id="live-${i}">${renderLive(cur, i)}</div>
+      ${ex.tip ? `
       <div class="toggles">
         <button data-act="toggle" data-key="${tipKey}" class="${ui.open.has(tipKey) ? 'on' : ''}">Form ipucu</button>
         <button data-act="toggle" data-key="${altKey}" class="${ui.open.has(altKey) ? 'on' : ''}">Alternatif</button>
       </div>
       ${ui.open.has(tipKey) ? `<div class="infobox"><strong>Form ipucu</strong>${esc(ex.tip)}</div>` : ''}
-      ${ui.open.has(altKey) ? `<div class="infobox"><strong>Daha kolay alternatif</strong>${esc(ex.alt)}<div class="muted small" style="margin-top:8px">${esc(ALT_NOTE)}</div></div>` : ''}
+      ${ui.open.has(altKey) ? `<div class="infobox"><strong>Alternatif</strong>${esc(ex.alt)}<div class="muted small" style="margin-top:8px">${esc(ALT_NOTE)}</div></div>` : ''}` : ''}
     </article>`;
 }
 
 function renderLive(cur, i) {
   if (cur.deload) return '';
   const e = cur.exercises[i];
-  if (topReached(e.id, e)) {
-    return `<div class="note good">✓ Tüm setlerde ${EX[e.id].reps[1]} tekrara ulaştın! Temiz formla yaptıysan sonraki antrenmanda en küçük adım kadar ağırlık ekle.</div>`;
+  if (reachedTop(e.id, e, e.reps[1])) {
+    return `<div class="note good">✓ Tüm setlerde ${e.reps[1]} tekrara ulaştın! Sonraki antrenmanda en küçük ağırlık adımını ekle.</div>`;
   }
   return '';
 }
@@ -465,7 +587,7 @@ function renderHistory() {
       const v = ds.length
         ? ds.map((x) => (ex.weighted ? `${fmt(x.w)}×${fmt(x.r)}` : `${fmt(x.r)}`)).join(' · ')
         : 'yapılmadı';
-      return `<div class="hist-ex"><span>${esc(ex.name)}</span><span class="v">${v}</span></div>`;
+      return `<div class="hist-ex"><span>${esc(ex.name)}${ex.retired ? ' <span class="muted small">(programdan çıktı)</span>' : ''}</span><span class="v">${v}</span></div>`;
     }).join('');
     return `
       <section class="card">
@@ -481,6 +603,89 @@ function renderHistory() {
   return `<h1 class="page-title">Geçmiş</h1>${list}`;
 }
 
+/* ---------------- Takip: kilo ve bel ---------------- */
+
+function weekStart(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const dow = (d.getDay() + 6) % 7; // Pazartesi = 0
+  d.setDate(d.getDate() - dow);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function weeklyAverages() {
+  const groups = new Map();
+  state.body.forEach((m) => {
+    const k = weekStart(m.date);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(m.kg);
+  });
+  return [...groups.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([start, vals]) => ({ start, avg: vals.reduce((x, y) => x + y, 0) / vals.length, n: vals.length }));
+}
+
+function renderTrack() {
+  const today = todayStr();
+  const thisWeek = weekStart(today);
+  const weeks = weeklyAverages();
+  const nThisWeek = (weeks.find((w) => w.start === thisWeek) || { n: 0 }).n;
+  const lastWaist = state.waist[state.waist.length - 1];
+  let waistInfo = 'Henüz ölçüm yok.';
+  if (lastWaist) {
+    const due = new Date(lastWaist.date + 'T12:00:00');
+    due.setDate(due.getDate() + WAIST_EVERY_DAYS);
+    const dueStr = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}-${String(due.getDate()).padStart(2, '0')}`;
+    waistInfo = `Son ölçüm: ${fmtDate(lastWaist.date)}. ${dueStr <= today ? 'Ölçüm zamanı geldi.' : `Sıradaki ölçüm: ${fmtDate(dueStr)}.`}`;
+  }
+
+  const weekRows = weeks.slice(0, 12).map((w) => {
+    const end = new Date(w.start + 'T12:00:00'); end.setDate(end.getDate() + 6);
+    return `<div class="hist-ex"><span>${fmtDate(w.start)} – ${end.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}</span><span class="v">${fmt(Math.round(w.avg * 10) / 10)} kg ort. (${w.n} kayıt)</span></div>`;
+  }).join('');
+
+  const entryRows = (list, key, unit) => [...list].reverse().slice(0, 14).map((m) => `
+    <div class="hist-ex"><span>${fmtDate(m.date, true)}</span><span class="v">${fmt(m[key])} ${unit}
+      <button class="x" data-act="del-measure" data-kind="${key}" data-date="${m.date}" aria-label="${fmtDate(m.date)} kaydını sil">✕</button></span></div>`).join('');
+
+  return `
+    <h1 class="page-title">Takip</h1>
+    <section class="card">
+      <h2>Kilo</h2>
+      <p class="muted small" style="margin:4px 0 10px">Hedef: kayıt tutmak. Bu hafta ${nThisWeek} kayıt.</p>
+      <div class="measure-form">
+        <input id="bodyDate" type="date" value="${today}" max="${today}" aria-label="Tarih">
+        <label class="fld"><input id="bodyVal" type="text" inputmode="decimal" placeholder="kg" autocomplete="off" aria-label="Kilo (kg)"></label>
+        <button class="btn" data-act="add-measure" data-kind="kg">Kaydet</button>
+      </div>
+      ${weeks.length ? `<h3 class="sub">Haftalık ortalama</h3>${weekRows}` : ''}
+      ${state.body.length ? `<h3 class="sub">Son kayıtlar</h3>${entryRows(state.body, 'kg', 'kg')}` : ''}
+    </section>
+    <section class="card">
+      <h2>Bel ölçüsü</h2>
+      <p class="muted small" style="margin:4px 0 10px">Hedef: iki haftada bir kayıt. ${waistInfo}</p>
+      <div class="measure-form">
+        <input id="waistDate" type="date" value="${today}" max="${today}" aria-label="Tarih">
+        <label class="fld"><input id="waistVal" type="text" inputmode="decimal" placeholder="cm" autocomplete="off" aria-label="Bel ölçüsü (cm)"></label>
+        <button class="btn" data-act="add-measure" data-kind="cm">Kaydet</button>
+      </div>
+      ${state.waist.length ? `<h3 class="sub">Kayıtlar</h3>${entryRows(state.waist, 'cm', 'cm')}` : ''}
+    </section>`;
+}
+
+function addMeasure(kind) {
+  const isKg = kind === 'kg';
+  const val = parseNum($(isKg ? '#bodyVal' : '#waistVal').value);
+  const date = $(isKg ? '#bodyDate' : '#waistDate').value || todayStr();
+  const max = isKg ? 500 : 300;
+  if (val == null || val <= 0 || val > max) { toast(isKg ? 'Geçerli bir kilo gir' : 'Geçerli bir ölçü gir'); return; }
+  const list = isKg ? state.body : state.waist;
+  const i = list.findIndex((m) => m.date === date);
+  const item = { date, [kind]: val };
+  if (i >= 0) list[i] = item; else list.push(item);
+  list.sort((a, b) => a.date.localeCompare(b.date));
+  save(); render(); toast('Kaydedildi');
+}
+
 function renderSettings() {
   const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   return `
@@ -490,7 +695,7 @@ function renderSettings() {
       <p class="muted small">Kayıtlar yalnızca bu telefonda saklanır. Telefon değiştirirken veya ara sıra güvence için yedek al.</p>
       <button class="btn" data-act="export">Yedeği dışa aktar (JSON)</button>
       <button class="btn" data-act="import">Yedekten içe aktar</button>
-      <p class="muted small" style="margin-bottom:0">${state.sessions.length} kayıtlı antrenman${state.current ? ' + 1 devam eden' : ''}.</p>
+      <p class="muted small" style="margin-bottom:0">${state.sessions.length} kayıtlı antrenman${state.current ? ' + 1 devam eden' : ''} · ${state.body.length} kilo · ${state.waist.length} bel kaydı.</p>
     </section>
     ${standalone ? '' : `
     <section class="card">
@@ -499,7 +704,7 @@ function renderSettings() {
     </section>`}
     <section class="card">
       <h2>Tehlikeli bölge</h2>
-      <p class="muted small">Tüm antrenman kayıtlarını bu telefondan siler. Geri alınamaz.</p>
+      <p class="muted small">Tüm kayıtları bu telefondan siler. Geri alınamaz.</p>
       <button class="btn danger" data-act="wipe">Tüm verileri sil</button>
     </section>
     <p class="muted small" style="text-align:center">IronLog ${APP_VERSION}</p>`;
@@ -637,18 +842,19 @@ function toggleSet(i, j) {
     render();
     return;
   }
+  if (ex.weighted && s.w == null && s.pw != null) s.w = s.pw; // yük azaltma önerisi
   if (ex.weighted && s.w == null) {
     toast('Önce ağırlığı gir');
     const inp = document.querySelector(`input[data-ex="${i}"][data-set="${j}"][data-f="w"]`);
     if (inp) inp.focus();
     return;
   }
-  if (s.r == null) s.r = s.pr ?? ex.reps[0];
+  if (s.r == null) s.r = s.pr ?? e.reps[0];
   s.done = true;
   save();
-  startTimer(ex.rest, `${ex.name} · dinlenme`);
+  startTimer(e.rest, `${ex.name} · dinlenme`);
   render();
-  if (topReached(e.id, e) && !cur.deload) toast('Üst tekrar sınırına ulaştın! Sonraki antrenmanda ağırlığı artır.', 3500);
+  if (!cur.deload && reachedTop(e.id, e, e.reps[1])) toast('Üst tekrar sınırına ulaştın! Sonraki antrenmanda en küçük ağırlık adımını ekle.', 3500);
 }
 
 function finishWorkout() {
@@ -673,7 +879,7 @@ function finishWorkout() {
 }
 
 async function exportData() {
-  const payload = { app: 'ironlog', version: 1, exportedAt: new Date().toISOString(), data: state };
+  const payload = { app: 'ironlog', version: DATA_VERSION, exportedAt: new Date().toISOString(), data: state };
   const json = JSON.stringify(payload, null, 2);
   const d = new Date();
   const name = `ironlog-yedek-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.json`;
@@ -731,9 +937,24 @@ document.addEventListener('click', (ev) => {
       ui.dayChoice = el.dataset.day === nextDayAuto() ? null : el.dataset.day; render(); break;
     case 'week':
       state.week = Number(el.dataset.week); save(); render(); break;
+    case 'deload':
+      state.deloadMode = !state.deloadMode; save(); render();
+      toast(state.deloadMode ? 'Yük azaltma açık' : 'Yük azaltma kapalı: program kaldığı yerden devam ediyor');
+      break;
+    case 'add-measure':
+      addMeasure(el.dataset.kind); break;
+    case 'del-measure': {
+      const isKg = el.dataset.kind === 'kg';
+      if (confirm(`${fmtDate(el.dataset.date)} tarihli ${isKg ? 'kilo' : 'bel'} kaydı silinsin mi?`)) {
+        if (isKg) state.body = state.body.filter((m) => m.date !== el.dataset.date);
+        else state.waist = state.waist.filter((m) => m.date !== el.dataset.date);
+        save(); render();
+      }
+      break;
+    }
     case 'start': {
       const day = ui.dayChoice || nextDayAuto();
-      state.current = buildSession(day, state.week);
+      state.current = buildSession(day, state.week, state.deloadMode);
       ui.open.clear();
       save(); render(); window.scrollTo(0, 0);
       break;
@@ -776,7 +997,7 @@ document.addEventListener('click', (ev) => {
     case 'export': exportData(); break;
     case 'import': $('#importFile').click(); break;
     case 'wipe':
-      if (confirm('TÜM antrenman kayıtları silinsin mi? Bu işlem geri alınamaz.') && confirm('Emin misin? Önce yedek almanı öneririm.')) {
+      if (confirm('TÜM kayıtlar (antrenman, kilo, bel) silinsin mi? Bu işlem geri alınamaz.') && confirm('Emin misin? Önce yedek almanı öneririm.')) {
         state = defaultState(); stopTimer(); save(); ui.dayChoice = null; render(); toast('Tüm veriler silindi');
       }
       break;
@@ -832,6 +1053,11 @@ document.addEventListener('change', (ev) => {
 
 // Klavyedeki "ileri/bitti" tuşu: sonraki alana geç
 document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter' && (ev.target.id === 'bodyVal' || ev.target.id === 'waistVal')) {
+    ev.preventDefault();
+    addMeasure(ev.target.id === 'bodyVal' ? 'kg' : 'cm');
+    return;
+  }
   if (ev.key !== 'Enter' || !ev.target.matches('input[data-f]')) return;
   ev.preventDefault();
   const inputs = [...document.querySelectorAll('input[data-f]')];
@@ -858,6 +1084,14 @@ if (navigator.storage && navigator.storage.persist) {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    // Yeni sürüm devreye girince bir kez yenile (veriler localStorage'da, kaybolmaz)
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloaded) return;
+      reloaded = true;
+      window.location.reload();
+    });
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch(() => {});
   });
 }
