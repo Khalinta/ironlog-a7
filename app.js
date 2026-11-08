@@ -6,7 +6,7 @@
 
 const STORAGE_KEY = 'ironlog.v1';   // Anahtar değişmez: eski kayıtlar aynı yerden okunur
 const DATA_VERSION = 2;
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '3.0.0';
 const WARMUP_MIN = 5;
 const CARDIO_MIN = 10;
 const DELOAD_FACTOR = 0.8;          // "Bu hafta yük azalt": ağırlık hedefi ~%20 düşük
@@ -15,8 +15,8 @@ const LONG_BREAK_DAYS = 7;
 const WAIST_EVERY_DAYS = 14;
 const ADDED_FROM_WEEK = 5;
 
-/* Haftalık plan: ana = günün ilk üç hareketi, küçük = lateral raise / preacher curl / dead bug,
-   eklenen = 5. haftadan itibaren başlayan hareketler. */
+/* Haftalık plan: ana = günün ilk üç hareketi; yardımcı (kod içinde "small") = reverse pec deck, lateral raise,
+   curl, triceps pushdown, hip thrust, dead bug; eklenen = 5. haftadan itibaren başlayan hareketler. */
 const WEEKS = {
   1: { main: 2, small: 1, added: 0, rir: '3–4' },
   2: { main: 2, small: 2, added: 0, rir: '3' },
@@ -27,64 +27,82 @@ const WEEKS = {
   7: { main: 3, small: 2, added: 2, rir: '1–2' },
   8: { main: 3, small: 2, added: 2, rir: '1–2' },
 };
+const KIND_LABEL = { main: 'Ana', small: 'Yardımcı', added: 'Eklenen' };
 
+const PRESS_TIP = 'Tutma yeri göğüs ortası hizasında, omuzları kulaklara kaldırma.';
 const EX = {
   legpress: {
     name: 'Leg press', weighted: true, noFailure: true,
-    tip: 'Ayaklarını platformda biraz yüksek koy ve belin koltuktan kalkmadan inebildiğin yerde dur.',
+    tip: ['Ayaklarını platformda biraz yüksek koy ve belin koltuktan kalkmadan inebildiğin yerde dur.', 'Belin yuvarlanmaya başlamadan dur, dizleri üstte kilitleme.'],
     alt: 'Daha hafif ağırlık ve daha dar hareket aralığı',
   },
   chestpress: {
     name: 'Göğüs press makinesi', weighted: true, noFailure: true,
-    tip: 'Kürek kemiklerini geriye yasla ve kollarını tam kilitlemeden it.',
+    tip: ['Kürek kemiklerini geriye yasla ve kollarını tam kilitlemeden it.', PRESS_TIP],
     alt: 'Pec deck makinesi',
   },
   seatedrow: {
     name: 'Oturarak row makinesi', weighted: true,
-    tip: 'Gövdeni sallamadan dirseklerini geriye çek.',
+    tip: ['Gövdeni sallamadan dirseklerini geriye çek.'],
     alt: 'Göğüs destekli row makinesi',
+  },
+  revpecdeck: {
+    name: 'Reverse pec deck (ters kelebek)', weighted: true, lastSetNote: true,
+    tip: [],
+    alt: 'Göğüs destekli dumbbell ters fly (eğimli sehpaya yüzüstü)',
   },
   lateral: {
     name: 'Dumbbell lateral raise', weighted: true, lastSetNote: true,
-    tip: 'Hafif dumbbell seç, dirseklerini omuz hizasına kadar kaldır ve yavaş indir.',
+    tip: ['Hafif dumbbell seç, dirseklerini omuz hizasına kadar kaldır ve yavaş indir.'],
     alt: 'Lateral raise makinesi',
   },
   preacher: {
     name: 'Tek kol dumbbell preacher curl', weighted: true, perSide: 'her kol', lastSetNote: true,
-    tip: 'Kolunu sehpaya yasla, ağırlığı yavaş indir ve en altta dirseğini kilitleme.',
+    tip: ['Kolunu sehpaya yasla, ağırlığı yavaş indir ve en altta dirseğini kilitleme.'],
     alt: 'Oturarak dumbbell curl (sehpa doluysa da bunu yap)',
   },
   legcurl: {
     name: 'Oturarak leg curl', weighted: true,
-    tip: 'Kalçanı koltuktan kaldırmadan topuklarını alta çek.',
+    tip: ['Kalçanı koltuktan kaldırmadan topuklarını alta çek.'],
     alt: 'Daha hafif ağırlık ve daha dar hareket aralığı',
   },
   latpulldown: {
     name: 'Lat pulldown', weighted: true,
-    tip: 'Tutamağı göğsünün üstüne çek, gövdeni geriye savurma.',
+    tip: ['Tutamağı göğsünün üstüne çek, gövdeni geriye savurma.'],
     alt: 'Kablolu düz kol pulldown',
   },
   shoulderpress: {
     name: 'Omuz press makinesi', weighted: true, noFailure: true,
-    tip: 'Sırtını pedde tut ve belini kavisleyerek itme.',
+    tip: ['Sırtını pedde tut ve belini kavisleyerek itme.', 'Omuzları kulaklara kaldırma.'],
     alt: 'Daha hafif ağırlık ve daha dar hareket aralığı',
+  },
+  hipthrust: {
+    name: 'Hip thrust makinesi', weighted: true, noFailure: true,
+    tip: ['Hareket kalçadan gelsin, üstte beli fazla bükme.'],
+    alt: 'Dumbbell ile kalça köprüsü (sırt sehpaya dayalı)',
   },
   deadbug: {
     name: 'Dead bug', weighted: false, perSide: 'her yön',
-    tip: 'Belini yere bastırırken karşı kol ve bacağı yavaşça uzat.',
+    tip: ['Belini yere bastırırken karşı kol ve bacağı yavaşça uzat.'],
     alt: 'Sırtüstü dizler bükülü, sırayla ayak dokundurma',
   },
+  pushdown: {
+    name: 'Triceps pushdown', weighted: true, lastSetNote: true,
+    tip: [],
+    alt: '',
+  },
   // Programdan çıkarıldı; sadece eski kayıtların geçmişte görünmesi için duruyor.
-  abduction: { name: 'Hip abduction makinesi', weighted: true, retired: true, tip: '', alt: '' },
+  abduction: { name: 'Hip abduction makinesi', weighted: true, retired: true, tip: [], alt: '' },
 };
 
-/* Aktif program. kind: main | small | added */
+/* Aktif program. kind: main | small (yardımcı) | added. ss: süperset grubu (aynı gruptaki ikinci hareketten sonra dinlenilir). */
 const PROGRAM = {
   A: [
-    { id: 'legpress', kind: 'main', reps: [8, 12], rest: 90 },
+    { id: 'legpress', kind: 'main', reps: [8, 12], rest: 120 },
     { id: 'chestpress', kind: 'main', reps: [8, 12], rest: 90 },
     { id: 'seatedrow', kind: 'main', reps: [8, 12], rest: 90 },
     { id: 'legcurl', kind: 'added', reps: [10, 15], rest: 75 },
+    { id: 'revpecdeck', kind: 'small', reps: [12, 20], rest: 60 },
     { id: 'lateral', kind: 'small', reps: [12, 20], rest: 60 },
     { id: 'preacher', kind: 'small', reps: [12, 20], rest: 60 },
   ],
@@ -92,14 +110,16 @@ const PROGRAM = {
     { id: 'legcurl', kind: 'main', reps: [8, 12], rest: 90 },
     { id: 'latpulldown', kind: 'main', reps: [8, 12], rest: 90 },
     { id: 'shoulderpress', kind: 'main', reps: [8, 12], rest: 90 },
-    { id: 'legpress', kind: 'added', reps: [10, 15], rest: 90 },
+    { id: 'hipthrust', kind: 'small', reps: [10, 15], rest: 90 },
+    { id: 'legpress', kind: 'added', reps: [10, 15], rest: 120 },
     { id: 'chestpress', kind: 'added', reps: [8, 12], rest: 90 },
     { id: 'deadbug', kind: 'small', reps: [8, 10], rest: 60 },
-    { id: 'preacher', kind: 'small', reps: [12, 20], rest: 60 },
+    { id: 'preacher', kind: 'small', reps: [12, 20], rest: 60, ss: 'kol', ssPos: 1 },
+    { id: 'pushdown', kind: 'small', reps: [12, 15], rest: 60, ss: 'kol', ssPos: 2 },
   ],
 };
 
-/* Önceki sürümün değerleri: eski kayıtlarda tekrar aralığı/dinlenme saklanmadığı için bunlar kullanılır. */
+/* Önceki sürümlerin değerleri: eski kayıtlarda tekrar aralığı/dinlenme saklanmadığı için bunlar kullanılır. */
 const LEGACY = {
   legpress: { kind: 'main', reps: [10, 12], rest: 90 },
   chestpress: { kind: 'main', reps: [10, 12], rest: 90 },
@@ -111,18 +131,30 @@ const LEGACY = {
   preacher: { kind: 'small', reps: [12, 15], rest: 60 },
   abduction: { kind: 'small', reps: [12, 15], rest: 60 },
   deadbug: { kind: 'small', reps: [8, 8], rest: 60 },
+  revpecdeck: { kind: 'small', reps: [12, 20], rest: 60 },
+  hipthrust: { kind: 'small', reps: [10, 15], rest: 90 },
+  pushdown: { kind: 'small', reps: [12, 15], rest: 60 },
 };
 
 const WARMUP_TIP = 'Başta 5 dk rahat bisiklet veya eliptik.';
-const PREP_SET_NOTE = 'Hazırlık seti: Bu hareketten önce çok hafif ağırlıkla 1 set, 12 tekrar. Bu seti kaydetme; kayıtlara ve ağırlık artırma hesabına girmez.';
+const PREP_SET_NOTE = 'Hazırlık seti: Bu hareketten önce çok hafif 1x12. Bu seti kaydetme; kayıtlara ve ağırlık artırma hesabına girmez.';
 const PREP_SET_COUNT = 2; // Günün ilk iki hareketi
-const CARDIO_TIP = 'Sonda 10 dk orta tempo bisiklet veya eliptik. Seans 60 dakikayı aşacaksa önce kardiyoyu kısalt.';
-const RIR_INFO = '"Kalan tekrar", set bittiğinde temiz formla kaç tekrar daha yapabileceğini gösterir.';
-const ALT_NOTE = 'Keskin veya batan bir ağrı olursa o hareketi bırak ve alternatifine geç.';
+const CARDIO_TIP = 'Sonda 10 dk orta tempo bisiklet veya eliptik. Süre fazla uzarsa önce kardiyoyu kısalt.';
+const SESSION_TARGET_MIN = 60;
+const SESSION_NOTE = 'Hedef ~60 dk; 5-10 dk sapma sorun değil. Süre fazla uzarsa önce kardiyoyu kısalt.';
+const WALK_NOTE = 'Günlük yürüyüşe devam.';
+const RIR_INFO = '"Kalan tekrar", set bitince daha kaç tekrar yapabileceğini gösterir.';
+const RIR_CHECK_NOTE = '3-4 haftada bir küçük bir hareketin son setini tükenişe götür, kalan tekrar tahminini kontrol et.';
+const ALT_NOTE = 'Keskin/batan ağrı olursa hareketi bırak, alternatifine geç. Kas yorgunluğu normal, eklem ağrısı değil.';
+const BREATH_NOTE = 'Nefesini tutup ıkınma, iterken nefes ver.';
 const NO_FAILURE_NOTE = 'Tam tükenişe gitme.';
 const LAST_SET_NOTE = 'Son set 0-1 tekrar kala bitebilir.';
-const LONG_BREAK_NOTE = '7 günden uzun ara verdin. İlk antrenmanda ağırlıkları yaklaşık %10 azalt.';
-const DELOAD_INFO = 'Performansın iki antrenman üst üste düşerse, eklem rahatsızlığın artarsa veya toparlanamazsan kullan.';
+const LONG_BREAK_NOTE = '7 günden uzun ara verdin. İlk antrenmanda ağırlığı yaklaşık %10 azalt.';
+const DELOAD_INFO = 'Sadece gerekirse: Performans iki antrenman üst üste düşerse, eklem rahatsızlığı artarsa veya toparlanamazsan 1 hafta kullan.';
+const BUMP_EXTRA = 'Adım çok büyükse (makinelerde 5-7 kg gibi): önce üst sınırı 2 tekrar geç, sonra artır. Varsa 1,25-2,5 kg ek plaka kullan. Yeni ağırlıkta aralığın altına düşmen normal, tekrar üst sınıra çık. Form bozuluyorsa ya da diz/bel ağrıyorsa artırma.';
+const AFTER_W8_NOTE = '8. haftadan sonra 6-8. hafta ayarlarıyla devam et (hafta 8 seçili kalabilir).';
+const NO_PROGRESS_DAYS = 14;
+const NO_PROGRESS_NOTE = 'Son 2 haftada bu ana harekette ilerleme görünmüyor. 2-3 hafta üst üste ilerleme olmazsa programı yeniden değerlendir.';
 
 /* ---------------- Yardımcılar ---------------- */
 
@@ -132,6 +164,7 @@ const fmt = (n) => (n == null ? '–' : String(Math.round(n * 100) / 100).replac
 const rangeText = (reps) => (reps[0] === reps[1] ? String(reps[0]) : `${reps[0]}-${reps[1]}`);
 const sameRange = (a, b) => a[0] === b[0] && a[1] === b[1];
 const roundHalf = (n) => Math.round(n * 2) / 2;
+const fmtRest = (sec) => (sec >= 120 && sec % 60 === 0 ? `${sec / 60} dk` : `${sec} sn`);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const DAY_MS = 86400000;
 
@@ -175,7 +208,7 @@ const CHECK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l
 /* ---------------- Durum (localStorage) ---------------- */
 
 function defaultState() {
-  return { version: DATA_VERSION, week: 1, deloadMode: false, sessions: [], current: null, timer: null, body: [], waist: [] };
+  return { version: DATA_VERSION, week: 1, deloadMode: false, deloadSince: null, sessions: [], current: null, timer: null, body: [], waist: [] };
 }
 
 function normSet(s) {
@@ -202,6 +235,9 @@ function normEntry(e) {
     reps: validRange(e.reps) ? [e.reps[0], e.reps[1]] : legacy.reps.slice(),
     rest: parseNum(e.rest, true) || legacy.rest,
     bump: parseNum(e.bump),
+    back: parseNum(e.back),
+    ss: typeof e.ss === 'string' ? e.ss.slice(0, 20) : null,
+    ssPos: e.ssPos === 1 || e.ssPos === 2 ? e.ssPos : null,
     sets: e.sets.map(normSet).filter(Boolean),
   };
 }
@@ -243,6 +279,7 @@ function normalize(raw) {
   const st = defaultState();
   st.week = WEEKS[raw.week] ? Number(raw.week) : 1;
   st.deloadMode = !!raw.deloadMode;
+  st.deloadSince = st.deloadMode && typeof raw.deloadSince === 'string' ? raw.deloadSince : null;
   st.sessions = raw.sessions.map(normSession).filter((s) => s && s.finishedAt);
   st.sessions.sort((a, b) => a.finishedAt.localeCompare(b.finishedAt));
   st.current = raw.current ? normSession(raw.current) : null;
@@ -316,6 +353,55 @@ function reachedTop(exId, entry, top) {
   return entry.sets.every((s) => s.done && s.r != null && s.r >= top);
 }
 
+/** Son kayıtta alt sınırın altında kalan set varsa, bundan önceki daha düşük ağırlık. */
+function previousWeight(exId, reps, ref) {
+  if (!EX[exId].weighted) return null;
+  const ds = doneSets(ref.entry);
+  if (!ds.some((s) => s.r != null && s.r < reps[0])) return null;
+  const maxW = Math.max(...ds.map((s) => s.w || 0));
+  for (let i = state.sessions.indexOf(ref.session) - 1; i >= 0; i--) {
+    const s = state.sessions[i];
+    if (s.deload) continue;
+    const e = s.exercises.find((x) => x.id === exId && sameRange(x.reps, reps));
+    if (!e || !doneSets(e).length) continue;
+    const w = Math.max(...doneSets(e).map((x) => x.w || 0));
+    if (w > 0 && w < maxW) return w;
+  }
+  return null;
+}
+
+/** Ana harekette performans: en yüksek ağırlık, eşitse o ağırlıktaki en iyi tekrar.
+    minReps verilirse sadece aralığın alt sınırına ulaşan setler sayılır (yoksa 0). */
+function perfOf(entry, minReps = 0) {
+  const all = doneSets(entry).filter((s) => s.w != null);
+  if (!all.length) return null;
+  const ds = all.filter((s) => (s.r || 0) >= minReps);
+  if (!ds.length) return { w: 0, r: 0 };
+  const w = Math.max(...ds.map((s) => s.w));
+  const r = Math.max(...ds.filter((s) => s.w === w).map((s) => s.r || 0));
+  return { w, r };
+}
+const better = (a, b) => a.w > b.w || (a.w === b.w && a.r > b.r);
+
+function strengthHistory(exId, reps) {
+  return state.sessions
+    .filter((s) => !s.deload)
+    .map((s) => ({ s, e: s.exercises.find((x) => x.id === exId && sameRange(x.reps, reps)) }))
+    .filter((x) => x.e && perfOf(x.e))
+    .map((x) => ({ date: x.s.finishedAt, shown: perfOf(x.e), perf: perfOf(x.e, reps[0]) }));
+}
+
+/** 2+ haftadır ilerleme yok mu? (son 14 günde, önceki en iyi performans geçilmediyse) */
+function noProgress(hist, now = Date.now()) {
+  if (hist.length < 3) return false;
+  const cut = now - NO_PROGRESS_DAYS * DAY_MS;
+  const before = hist.filter((h) => new Date(h.date).getTime() < cut);
+  const within = hist.filter((h) => new Date(h.date).getTime() >= cut);
+  if (!before.length || within.length < 2) return false;
+  const best = before.reduce((a, h) => (better(h.perf, a) ? h.perf : a), before[0].perf);
+  return !within.some((h) => better(h.perf, best));
+}
+
 function daysSinceLast(now = Date.now()) {
   const last = state.sessions[state.sessions.length - 1];
   if (!last) return null;
@@ -334,17 +420,19 @@ function buildSession(day, week, deload) {
     const refSets = ref ? doneSets(ref.entry) : [];
     const bump = !deload && ref && reachedTop(sl.id, ref.entry, hi)
       ? Math.max(...refSets.map((s) => s.w || 0)) : null;
+    // Aralığın alt sınırına bile ulaşılamadıysa önceki (daha düşük) ağırlığa dön
+    const back = !deload && bump == null && ref ? previousWeight(sl.id, sl.reps, ref) : null;
     const sets = [];
     for (let j = 0; j < n; j++) {
       const rs = refSets[j] || refSets[refSets.length - 1] || null;
-      let w = ex.weighted && rs && rs.w != null ? rs.w : null;
+      let w = ex.weighted && rs && rs.w != null ? (back != null ? back : rs.w) : null;
       let pw = null;
       if (deload && w != null) { pw = roundHalf(w * DELOAD_FACTOR); w = null; }
       // Ağırlık artırılacaksa hedef aralığın altı; değilse son tekrar (aralık içinde)
-      const pr = bump == null && rs && rs.r != null ? Math.min(hi, Math.max(lo, rs.r)) : lo;
+      const pr = bump == null && back == null && rs && rs.r != null ? Math.min(hi, Math.max(lo, rs.r)) : lo;
       sets.push({ w, r: null, pr, pw, done: false });
     }
-    return { id: sl.id, kind: sl.kind, reps: [lo, hi], rest: sl.rest, bump, sets };
+    return { id: sl.id, kind: sl.kind, reps: [lo, hi], rest: sl.rest, bump, back, ss: sl.ss || null, ssPos: sl.ssPos || null, sets };
   });
   return {
     id: uid(), day, week, deload,
@@ -380,13 +468,20 @@ function rirFor(week, deload) {
   return deload ? DELOAD_RIR : WEEKS[week].rir;
 }
 
+function setsSummary(week, dl) {
+  const w = WEEKS[week];
+  const added = w.added ? `Eklenen ${setsFor(week, 'added', dl)}` : 'Eklenen yok';
+  return `Ana ${setsFor(week, 'main', dl)} · Yardımcı ${setsFor(week, 'small', dl)} · ${added}`;
+}
+
 function renderHome() {
   const auto = nextDayAuto();
   const day = ui.dayChoice || auto;
-  const w = WEEKS[state.week];
   const dl = state.deloadMode;
   const last = state.sessions[state.sessions.length - 1];
   const gap = daysSinceLast();
+  const active = slotsFor(day, state.week);
+  const deloadDays = dl && state.deloadSince ? (Date.now() - new Date(state.deloadSince).getTime()) / DAY_MS : 0;
 
   const weekBtns = Object.keys(WEEKS).map((k) => `
     <button data-act="week" data-week="${k}" class="${Number(k) === state.week ? 'on' : ''}" aria-label="Hafta ${k}">${k}</button>`).join('');
@@ -395,21 +490,31 @@ function renderHome() {
     const ex = EX[sl.id];
     const n = setsFor(state.week, sl.kind, dl);
     const side = ex.perSide ? ' ' + ex.perSide : '';
-    if (!n) return `<li class="off"><span>${esc(ex.name)}</span><span class="meta">${ADDED_FROM_WEEK}. haftadan itibaren</span></li>`;
-    return `<li><span>${esc(ex.name)}</span><span class="meta">${n} × ${rangeText(sl.reps)}${side}</span></li>`;
+    const ss = sl.ss ? `<span class="ss-mark">${sl.ssPos === 1 ? 'Süperset' : '+'}</span>` : '';
+    if (!n) return `<li class="off"><span>${esc(ex.name)}</span><span class="meta">${ADDED_FROM_WEEK}. haftadan</span></li>`;
+    return `<li class="${sl.ss ? 'ss ss' + sl.ssPos : ''}"><span>${ss}${esc(ex.name)}</span><span class="meta">${n} × ${rangeText(sl.reps)}${side}</span></li>`;
   }).join('');
 
-  const addedTxt = w.added ? `eklenen ${setsFor(state.week, 'added', dl)} set` : 'eklenen yok';
-
   return `
-    <h1 class="page-title">IronLog</h1>
-    <section class="card">
-      <div class="muted">Sıradaki antrenman</div>
+    <header class="brand">
+      <div class="logo">IRON<span>LOG</span></div>
+      <div class="brand-sub">Hafta ${state.week}${dl ? ' · yük azaltma' : ''}</div>
+    </header>
+
+    <section class="card hero">
+      <div class="eyebrow">Sıradaki antrenman</div>
+      <div class="hero-row">
+        <div class="hero-day">${day}</div>
+        <div class="hero-info">
+          <div class="hero-title">${day} günü</div>
+          <div class="muted small">${active.length} hareket · ~${SESSION_TARGET_MIN} dk</div>
+        </div>
+      </div>
       <div class="seg">
         <button data-act="day" data-day="A" class="${day === 'A' ? 'on' : ''}">A günü</button>
         <button data-act="day" data-day="B" class="${day === 'B' ? 'on' : ''}">B günü</button>
       </div>
-      <div class="muted small" style="margin-top:10px">
+      <div class="muted small" style="margin-top:12px">
         ${last ? `Son antrenman: ${last.day} günü, ${fmtDate(last.finishedAt, true)}. ` : 'Henüz kayıtlı antrenman yok. '}
         Otomatik sıra: <b>${auto}</b>${ui.dayChoice && ui.dayChoice !== auto ? ' (elle değiştirdin)' : ''}
       </div>
@@ -417,11 +522,26 @@ function renderHome() {
     </section>
 
     <section class="card">
-      <div class="row-between"><h2>Hafta ${state.week}</h2>
-        ${dl ? '<span class="tag">Yük azaltma açık</span>' : ''}</div>
-      <div class="muted small" style="margin-top:4px">Ana ${setsFor(state.week, 'main', dl)} set · küçük ${setsFor(state.week, 'small', dl)} set · ${addedTxt} · kardiyo ${CARDIO_MIN} dk</div>
+      <div class="row-between"><h2>Hafta</h2>${dl ? '<span class="tag">Yük azaltma açık</span>' : ''}</div>
       <div class="weeks">${weekBtns}</div>
-      <div class="note warn">Kalan tekrar: ${rirFor(state.week, dl)}. <span style="font-weight:450">${esc(RIR_INFO)}</span></div>
+      <div class="stat-row">
+        <div class="stat"><b>${setsFor(state.week, 'main', dl)}</b><span>Ana set</span></div>
+        <div class="stat"><b>${setsFor(state.week, 'small', dl)}</b><span>Yardımcı</span></div>
+        <div class="stat"><b>${WEEKS[state.week].added ? setsFor(state.week, 'added', dl) : '–'}</b><span>Eklenen</span></div>
+        <div class="stat accent"><b>${rirFor(state.week, dl)}</b><span>Kalan tekrar</span></div>
+      </div>
+      <p class="muted small" style="margin:12px 0 0">${esc(RIR_INFO)} ${esc(RIR_CHECK_NOTE)}</p>
+      ${state.week === 8 ? `<div class="note blue">${AFTER_W8_NOTE}</div>` : ''}
+    </section>
+
+    <section class="card">
+      <h2>${day} günü planı</h2>
+      <ul class="plan-list">
+        <li class="step-li"><span>Isınma</span><span class="meta">${WARMUP_MIN} dk</span></li>
+        ${items}
+        <li class="step-li"><span>Kardiyo</span><span class="meta">${CARDIO_MIN} dk</span></li>
+      </ul>
+      <p class="muted small" style="margin:10px 0 0">${esc(SESSION_NOTE)} ${esc(WALK_NOTE)}</p>
     </section>
 
     <section class="card">
@@ -430,16 +550,8 @@ function renderHome() {
         <button class="switch ${dl ? 'on' : ''}" data-act="deload" role="switch" aria-checked="${dl}" aria-label="Bu hafta yük azalt"><span></span></button>
       </div>
       <p class="muted small" style="margin:8px 0 0">${esc(DELOAD_INFO)}</p>
-      ${dl ? '<div class="note blue">Açık: ağırlık hedefi yaklaşık %20 düşük gösterilir, set sayıları yarıya iner (en az 1), kalan tekrar 4. Bu kayıtlar ağırlık artırma önerisini etkilemez. Kapatınca program kaldığı yerden devam eder.</div>' : ''}
-    </section>
-
-    <section class="card">
-      <h2>${day} günü planı</h2>
-      <ul class="plan-list">
-        <li><span>Isınma</span><span class="meta">${WARMUP_MIN} dk</span></li>
-        ${items}
-        <li><span>Kardiyo</span><span class="meta">${CARDIO_MIN} dk</span></li>
-      </ul>
+      ${dl ? '<div class="note blue">Açık: ağırlık ~%20 az gösterilir, setler yarıya iner (en az 1), 4 tekrar kala bitir. Bu kayıtlar ağırlık artırma önerisini etkilemez. Kapatınca program kaldığı yerden devam eder.</div>' : ''}
+      ${deloadDays >= 7 ? '<div class="note warn">1 hafta doldu: toparlandıysan yük azaltmayı kapat.</div>' : ''}
     </section>
 
     <div class="sticky-cta">
@@ -453,21 +565,37 @@ function countSets(cur) {
   return { total, done };
 }
 
+function elapsedText(cur) {
+  const min = Math.max(0, Math.floor((Date.now() - new Date(cur.startedAt).getTime()) / 60000));
+  return `${min} dk / hedef ~${SESSION_TARGET_MIN} dk`;
+}
+
 function renderWorkout() {
   const cur = state.current;
   const { total, done } = countSets(cur);
   const exHtml = cur.exercises.map((e, i) => renderExercise(cur, e, i)).join('');
+  const safeOpen = ui.open.has('safety');
   return `
     <div class="wk-head">
       <div>
+        <div class="eyebrow">Hafta ${cur.week}${cur.deload ? ' · yük azaltma' : ''}</div>
         <div class="title">${cur.day} günü</div>
-        <div class="muted small">Hafta ${cur.week} ${cur.deload ? '<span class="tag">Yük azaltma</span>' : ''}</div>
       </div>
-      <div class="prog" id="prog">${done}/${total} set</div>
+      <div class="prog"><b id="prog">${done}/${total}</b><span>set</span></div>
     </div>
     <div class="progress"><div id="progbar" style="width:${total ? (done / total) * 100 : 0}%"></div></div>
-    <div class="note warn" style="margin:0 0 12px">Kalan tekrar: ${rirFor(cur.week, cur.deload)}. <span style="font-weight:450">${esc(RIR_INFO)}</span></div>
+    <div class="wk-meta">
+      <span>⏱ <span id="elapsed">${elapsedText(cur)}</span></span>
+      <span>Kalan tekrar <b>${rirFor(cur.week, cur.deload)}</b></span>
+    </div>
     ${cur.longBreak ? `<div class="note warn" style="margin:0 0 12px">${LONG_BREAK_NOTE}</div>` : ''}
+
+    <section class="card safety">
+      <button class="safety-btn" data-act="toggle" data-key="safety" aria-expanded="${safeOpen}">
+        <span>Güvenlik ve nefes</span><span class="chev">${safeOpen ? '−' : '+'}</span>
+      </button>
+      ${safeOpen ? `<ul class="bullets"><li>${esc(ALT_NOTE)}</li><li>${esc(BREATH_NOTE)}</li><li>${esc(SESSION_NOTE)}</li></ul>` : ''}
+    </section>
 
     ${renderStep('warmup', 'Isınma', `${WARMUP_MIN} dk`, cur.warmupDone, WARMUP_TIP)}
     ${exHtml}
@@ -499,6 +627,13 @@ function renderStep(kind, title, dur, done, tip) {
     </section>`;
 }
 
+function supersetPartner(cur, i) {
+  const e = cur.exercises[i];
+  if (!e.ss) return null;
+  const j = cur.exercises.findIndex((x, k) => k !== i && x.ss === e.ss);
+  return j >= 0 ? j : null;
+}
+
 function renderExercise(cur, e, i) {
   const ex = EX[e.id];
   // "Son" satırı: önce aynı tekrar aralığındaki son kayıt, yoksa hareketin son kaydı (yük azaltma dahil)
@@ -516,11 +651,14 @@ function renderExercise(cur, e, i) {
   let notes = '';
   if (i < PREP_SET_COUNT) notes += `<div class="note blue">${PREP_SET_NOTE}</div>`;
   if (e.bump != null && !cur.deload) {
-    notes += `<div class="note warn">⬆ En küçük ağırlık adımını ekle. Geçen sefer ${fmt(e.bump)} kg ile tüm setlerde ${e.reps[1]} tekrara ulaştın; yeni ağırlıkta hedef ${e.reps[0]} tekrar.</div>`;
+    notes += `<div class="note warn">⬆ En küçük ağırlık adımını ekle. Geçen sefer ${fmt(e.bump)} kg ile tüm setlerde ${e.reps[1]} tekrara ulaştın; yeni ağırlıkta hedef ${e.reps[0]} tekrar.<span class="note-sub">${esc(BUMP_EXTRA)}</span></div>`;
+  }
+  if (e.back != null && !cur.deload) {
+    notes += `<div class="note warn">↩ Geçen sefer aralığın alt sınırına (${e.reps[0]}) ulaşamadın: önceki ağırlığa dön (${fmt(e.back)} kg).</div>`;
   }
   if (cur.deload && ex.weighted) {
     const pw = e.sets.find((s) => s.pw != null);
-    notes += `<div class="note blue">Yük azaltma: ağırlık hedefi yaklaşık %20 düşük${pw ? ` (≈${fmt(pw.pw)} kg)` : ''}. Gri öneri, tike basınca kaydedilir.</div>`;
+    notes += `<div class="note blue">Yük azaltma: ağırlık ~%20 az${pw ? ` (≈${fmt(pw.pw)} kg)` : ''}, 4 tekrar kala bitir. Gri öneri, tike basınca kaydedilir.</div>`;
   }
   if (ex.noFailure) notes += `<div class="note blue">${NO_FAILURE_NOTE}</div>`;
   if (ex.lastSetNote && cur.week >= 6 && !cur.deload) notes += `<div class="note blue">${LAST_SET_NOTE}</div>`;
@@ -533,13 +671,31 @@ function renderExercise(cur, e, i) {
       <button class="chk" data-act="check" data-ex="${i}" data-set="${j}" aria-label="Set ${j + 1} tamam">${CHECK_SVG}</button>
     </div>`).join('');
 
+  // Süperset bilgisi
+  const partner = supersetPartner(cur, i);
+  let restText = `${fmtRest(e.rest)} dinlenme`;
+  if (partner != null && e.ssPos === 1) restText = `ardından dinlenmeden ${esc(EX[cur.exercises[partner].id].name)}`;
+  if (partner != null && e.ssPos === 2) restText = `ikisi bitince ${fmtRest(e.rest)} dinlenme`;
+  const ssTag = partner != null ? `<span class="tag ss-tag">Süperset ${e.ssPos}/2</span>` : '';
+
+  const tipLines = [...(ex.tip || [])];
+  if (ex.weighted) tipLines.push(BREATH_NOTE);
   const tipKey = `tip-${i}`, altKey = `alt-${i}`;
   const allDone = e.sets.length && e.sets.every((s) => s.done);
-  const kindLabel = e.kind === 'added' ? ' <span class="tag">Eklenen</span>' : '';
+  const toggles = [
+    tipLines.length ? `<button data-act="toggle" data-key="${tipKey}" class="${ui.open.has(tipKey) ? 'on' : ''}">Form ipucu</button>` : '',
+    ex.alt ? `<button data-act="toggle" data-key="${altKey}" class="${ui.open.has(altKey) ? 'on' : ''}">Alternatif</button>` : '',
+  ].filter(Boolean);
   return `
-    <article class="card ex ${allDone ? 'all-done' : ''}" id="ex-${i}">
-      <div class="ex-head"><h3>${esc(ex.name)}${kindLabel}</h3></div>
-      <div class="ex-meta">${e.sets.length} set × ${rangeText(e.reps)} tekrar${ex.perSide ? ' (' + ex.perSide + ')' : ''} · ${e.rest} sn dinlenme</div>
+    <article class="card ex ${allDone ? 'all-done' : ''} ${partner != null ? 'in-ss ss' + e.ssPos : ''}" id="ex-${i}">
+      <div class="ex-head">
+        <span class="ex-num">${String(i + 1).padStart(2, '0')}</span>
+        <div class="grow">
+          <div class="ex-tags"><span class="kind">${KIND_LABEL[e.kind] || ''}</span>${ssTag}</div>
+          <h3>${esc(ex.name)}</h3>
+        </div>
+      </div>
+      <div class="ex-meta">${e.sets.length} set × ${rangeText(e.reps)} tekrar${ex.perSide ? ' (' + ex.perSide + ')' : ''} · ${restText}</div>
       ${lastHtml}
       ${notes}
       <div class="sets">
@@ -547,13 +703,9 @@ function renderExercise(cur, e, i) {
         ${sets}
       </div>
       <div class="ex-live" id="live-${i}">${renderLive(cur, i)}</div>
-      ${ex.tip ? `
-      <div class="toggles">
-        <button data-act="toggle" data-key="${tipKey}" class="${ui.open.has(tipKey) ? 'on' : ''}">Form ipucu</button>
-        <button data-act="toggle" data-key="${altKey}" class="${ui.open.has(altKey) ? 'on' : ''}">Alternatif</button>
-      </div>
-      ${ui.open.has(tipKey) ? `<div class="infobox"><strong>Form ipucu</strong>${esc(ex.tip)}</div>` : ''}
-      ${ui.open.has(altKey) ? `<div class="infobox"><strong>Alternatif</strong>${esc(ex.alt)}<div class="muted small" style="margin-top:8px">${esc(ALT_NOTE)}</div></div>` : ''}` : ''}
+      ${toggles.length ? `<div class="toggles" style="grid-template-columns:repeat(${toggles.length},1fr)">${toggles.join('')}</div>` : ''}
+      ${ui.open.has(tipKey) ? `<div class="infobox"><strong>Form ipucu</strong>${tipLines.map((t) => `<p>${esc(t)}</p>`).join('')}</div>` : ''}
+      ${ui.open.has(altKey) ? `<div class="infobox"><strong>Alternatif</strong><p>${esc(ex.alt)}</p><p class="muted small">${esc(ALT_NOTE)}</p></div>` : ''}
     </article>`;
 }
 
@@ -572,7 +724,7 @@ function refreshLive(i) {
   const live = document.getElementById('live-' + i);
   if (live) live.innerHTML = renderLive(cur, i);
   const { total, done } = countSets(cur);
-  const p = $('#prog'); if (p) p.textContent = `${done}/${total} set`;
+  const p = $('#prog'); if (p) p.textContent = `${done}/${total}`;
   const b = $('#progbar'); if (b) b.style.width = `${total ? (done / total) * 100 : 0}%`;
 }
 
@@ -651,7 +803,7 @@ function renderTrack() {
     <h1 class="page-title">Takip</h1>
     <section class="card">
       <h2>Kilo</h2>
-      <p class="muted small" style="margin:4px 0 10px">Hedef: kayıt tutmak. Bu hafta ${nThisWeek} kayıt.</p>
+      <p class="muted small" style="margin:4px 0 10px">Hedef: haftada 2-3 kez tartıl, haftalık ortalamaya bak. Bu hafta ${nThisWeek} kayıt.</p>
       <div class="measure-form">
         <input id="bodyDate" type="date" value="${today}" max="${today}" aria-label="Tarih">
         <label class="fld"><input id="bodyVal" type="text" inputmode="decimal" placeholder="kg" autocomplete="off" aria-label="Kilo (kg)"></label>
@@ -662,13 +814,42 @@ function renderTrack() {
     </section>
     <section class="card">
       <h2>Bel ölçüsü</h2>
-      <p class="muted small" style="margin:4px 0 10px">Hedef: iki haftada bir kayıt. ${waistInfo}</p>
+      <p class="muted small" style="margin:4px 0 10px">Hedef: iki haftada bir, aynı yerden ölç. ${waistInfo}</p>
       <div class="measure-form">
         <input id="waistDate" type="date" value="${today}" max="${today}" aria-label="Tarih">
         <label class="fld"><input id="waistVal" type="text" inputmode="decimal" placeholder="cm" autocomplete="off" aria-label="Bel ölçüsü (cm)"></label>
         <button class="btn" data-act="add-measure" data-kind="cm">Kaydet</button>
       </div>
       ${state.waist.length ? `<h3 class="sub">Kayıtlar</h3>${entryRows(state.waist, 'cm', 'cm')}` : ''}
+    </section>
+    ${renderStrength()}`;
+}
+
+/** Güç: ana hareketlerde ağırlık ve tekrar artıyor mu? (yük azaltma kayıtları hariç) */
+function renderStrength() {
+  const seen = new Set();
+  const rows = [];
+  ['A', 'B'].forEach((d) => PROGRAM[d].filter((sl) => sl.kind === 'main').forEach((sl) => {
+    const key = sl.id + sl.reps.join('-');
+    if (seen.has(key)) return;
+    seen.add(key);
+    const hist = strengthHistory(sl.id, sl.reps);
+    const recent = hist.slice(-4);
+    const chips = recent.length
+      ? recent.map((h) => `<span class="chip">${fmt(h.shown.w)}×${h.shown.r}<small>${fmtDate(h.date)}</small></span>`).join('')
+      : '<span class="muted small">Henüz kayıt yok</span>';
+    rows.push(`
+      <div class="str-row">
+        <div class="str-name">${esc(EX[sl.id].name)} <span class="muted small">${rangeText(sl.reps)}</span></div>
+        <div class="chips">${chips}</div>
+        ${noProgress(hist) ? `<div class="note blue">${NO_PROGRESS_NOTE}</div>` : ''}
+      </div>`);
+  }));
+  return `
+    <section class="card">
+      <h2>Güç</h2>
+      <p class="muted small" style="margin:4px 0 6px">Ana hareketlerde ağırlık ve tekrar artıyor mu? Her antrenmanın en iyi seti (kg × tekrar), yük azaltma hariç.</p>
+      ${rows.join('')}
     </section>`;
 }
 
@@ -852,7 +1033,17 @@ function toggleSet(i, j) {
   if (s.r == null) s.r = s.pr ?? e.reps[0];
   s.done = true;
   save();
-  startTimer(e.rest, `${ex.name} · dinlenme`);
+  const partner = supersetPartner(cur, i);
+  if (partner != null && e.ssPos === 1) {
+    // Süpersetin ilk hareketi: dinlenmeden ikinciye geç
+    stopTimer();
+    render();
+    toast(`Dinlenmeden: ${EX[cur.exercises[partner].id].name}`);
+    const card = document.getElementById('ex-' + partner);
+    if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  startTimer(e.rest, `${ex.name}${partner != null ? ' (süperset)' : ''} · dinlenme`);
   render();
   if (!cur.deload && reachedTop(e.id, e, e.reps[1])) toast('Üst tekrar sınırına ulaştın! Sonraki antrenmanda en küçük ağırlık adımını ekle.', 3500);
 }
@@ -938,7 +1129,9 @@ document.addEventListener('click', (ev) => {
     case 'week':
       state.week = Number(el.dataset.week); save(); render(); break;
     case 'deload':
-      state.deloadMode = !state.deloadMode; save(); render();
+      state.deloadMode = !state.deloadMode;
+      state.deloadSince = state.deloadMode ? new Date().toISOString() : null;
+      save(); render();
       toast(state.deloadMode ? 'Yük azaltma açık' : 'Yük azaltma kapalı: program kaldığı yerden devam ediyor');
       break;
     case 'add-measure':
@@ -1072,6 +1265,12 @@ document.addEventListener('visibilitychange', () => {
   }
   updateWakeLock();
 });
+
+// Antrenman süresi (hedef ~60 dk)
+setInterval(() => {
+  const el = document.getElementById('elapsed');
+  if (el && state.current) el.textContent = elapsedText(state.current);
+}, 20000);
 
 /* ---------------- Başlat ---------------- */
 
