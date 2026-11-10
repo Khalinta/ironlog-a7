@@ -173,7 +173,8 @@ function migrate(raw) {
       Object.keys(raw.exSettings).forEach((k) => {
         const v = raw.exSettings[k];
         if (!exDef(k) || !v || typeof v !== 'object') return;
-        st.exSettings[k] = { bigStep: !!v.bigStep, note: typeof v.note === 'string' ? v.note.slice(0, 300) : '' };
+        const stp = typeof v.step === 'number' && Number.isFinite(v.step) && v.step >= 0.25 && v.step <= 50 ? v.step : null;
+        st.exSettings[k] = { bigStep: !!v.bigStep, note: typeof v.note === 'string' ? v.note.slice(0, 300) : '', step: stp };
       });
     }
     return st;
@@ -537,6 +538,8 @@ function elapsedText(sess) {
 }
 
 function weightStep(exId) {
+  const custom = exCfg(exId).step;
+  if (typeof custom === 'number' && Number.isFinite(custom) && custom > 0) return custom;
   const ex = exDef(exId);
   const ls = ex && PROGRAM.loadSteps[ex.load];
   return ls ? ls.step : 0;
@@ -704,6 +707,12 @@ function renderExercise(sess, e, i) {
   const cfgBox = `<div class="infobox"><strong>Hareket ayarı (kalıcı)</strong>
       <label class="note-label" for="exnote-${i}">Makine ayarı notu</label>
       <input class="text-in" id="exnote-${i}" data-exnote="${e.ex}" type="text" maxlength="300" placeholder="örn. koltuk 4, pim 3. delik" value="${esc(cfg.note || '')}">
+      ${bodyweight ? '' : (() => {
+        const defStep = fmt((PROGRAM.loadSteps[ex.load] || {}).step || 0);
+        return `<label class="note-label" for="exstep-${i}" style="margin-top:12px">Ağırlık adımı (kg)</label>
+      <input class="text-in" id="exstep-${i}" data-exstep="${e.ex}" type="text" inputmode="decimal" autocomplete="off" maxlength="5" placeholder="${defStep}" value="${cfg.step ? fmt(cfg.step) : ''}">
+      <p class="muted small" style="margin-top:6px">Bu makinede artı/eksi düğmesinin kaç kg değiştireceği. Makinenin bir plakası kaç kg ise onu yaz. Boş bırakırsan varsayılan (${defStep} kg) kullanılır.</p>`;
+      })()}
       ${bodyweight ? '' : `<div class="row-between" style="margin-top:12px"><span>Büyük ağırlık adımı</span><button class="switch ${big ? 'on' : ''}" data-act="bigstep" data-ex-id="${e.ex}" role="switch" aria-checked="${big}" aria-label="Büyük ağırlık adımı"><span></span></button></div>
       <p class="muted small" style="margin-top:8px">Açıkken artırma önerisi, bütün setlerde üst sınırın 2 tekrar üstüne (${sl.reps[1] + PROGRAM.bigStep.extraReps}) çıkınca verilir. ${esc(PROGRAM.bigStep.text)}</p>`}
     </div>`;
@@ -1514,7 +1523,7 @@ document.addEventListener('click', (ev) => {
     case 'bigstep': {
       const id = el.dataset.exId;
       if (!exDef(id)) break;
-      state.exSettings[id] = Object.assign({ bigStep: false, note: '' }, exCfg(id));
+      state.exSettings[id] = Object.assign({ bigStep: false, note: '', step: null }, exCfg(id));
       state.exSettings[id].bigStep = !state.exSettings[id].bigStep;
       save(); render();
       break;
@@ -1615,7 +1624,7 @@ document.addEventListener('change', (ev) => {
   if (inp.dataset && inp.dataset.exnote) {
     const id = inp.dataset.exnote;
     if (!exDef(id)) return;
-    state.exSettings[id] = Object.assign({ bigStep: false, note: '' }, exCfg(id));
+    state.exSettings[id] = Object.assign({ bigStep: false, note: '', step: null }, exCfg(id));
     const note = inp.value.trim().slice(0, 300);
     state.exSettings[id].note = note;
     save();
@@ -1627,6 +1636,36 @@ document.addEventListener('change', (ev) => {
       if (el) { if (note) el.textContent = '⚙ ' + note; else el.remove(); }
     }
     toast('Makine ayarı notu kaydedildi');
+    return;
+  }
+  if (inp.dataset && inp.dataset.exstep) {
+    const id = inp.dataset.exstep;
+    if (!exDef(id)) return;
+    const raw = inp.value.trim();
+    const prev = exCfg(id).step;
+    let val = null;
+    if (raw !== '') {
+      val = parseNum(raw);
+      if (val == null || !Number.isFinite(val) || val < 0.25 || val > 50) {
+        inp.value = prev ? fmt(prev) : '';
+        toast('Adım 0,25 ile 50 kg arasında olmalı');
+        return;
+      }
+    }
+    state.exSettings[id] = Object.assign({ bigStep: false, note: '', step: null }, exCfg(id));
+    state.exSettings[id].step = val;
+    save();
+    inp.value = val ? fmt(val) : '';
+    const card = inp.closest('.ex');
+    if (card) {
+      const sm = card.querySelector('.set2-head small');
+      if (sm) sm.textContent = `(±${fmt(weightStep(id))})`;
+      const i = Number(card.id.replace('ex-', ''));
+      const sess = activeSess();
+      const wu = document.getElementById(`warm-${i}`);
+      if (wu && sess && sess.entries[i]) wu.outerHTML = warmupHtml(slotDef(sess.type, sess.entries[i].slot), sess.entries[i], i);
+    }
+    toast('Ağırlık adımı kaydedildi');
     return;
   }
   if (inp.id === 'progEx') { ui.progEx = inp.value; render(); return; }
