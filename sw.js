@@ -1,6 +1,6 @@
 /* IronLog service worker: uygulamayı internetsiz çalıştırır.
-   Uygulama dosyalarını değiştirdiğinde CACHE sürümünü artır. */
-const CACHE = 'ironlog-v7';
+   Uygulama dosyalarını HER değiştirdiğinde CACHE sürümünü artır; yoksa telefonlar güncellemeyi almaz. */
+const CACHE = 'ironlog-v8';
 const ASSETS = [
   './',
   './index.html',
@@ -15,12 +15,17 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  // cache: 'reload' → tarayıcı önbelleğini atla, dosyaları sunucudan taze al
-  event.waitUntil(
-    caches.open(CACHE)
-      .then((c) => c.addAll(ASSETS.map((u) => new Request(u, { cache: 'reload' }))))
-      .then(() => self.skipWaiting())
-  );
+  // Bütün dosyalar tek seferde, taze olarak indirilir; biri bile inmezse bu sürüm devreye girmez.
+  // "?v=" eki, sunucu önündeki önbelleğin eski dosya vermesini engeller.
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    await Promise.all(ASSETS.map(async (u) => {
+      const res = await fetch(`${u}?v=${CACHE}`, { cache: 'reload' });
+      if (!res.ok) throw new Error('indirilemedi: ' + u);
+      await cache.put(u, res);
+    }));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (event) => {
@@ -31,25 +36,15 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Önce önbellekten hızlıca ver, arka planda güncelle (stale-while-revalidate)
+// Önce önbellek. Dosyalar arka planda tek tek yenilenmez: yoksa yarım kalan bir güncelleme
+// eski sayfa ile yeni kodu karıştırabilir. Güncelleme yalnızca CACHE sürümü artınca, topluca gelir.
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
-  event.respondWith(
-    caches.open(CACHE).then(async (cache) => {
-      const key = req.mode === 'navigate' ? './index.html' : req;
-      const cached = await cache.match(key, { ignoreSearch: true });
-      const network = fetch(req)
-        .then((res) => {
-          if (res && res.ok && res.type === 'basic') cache.put(key, res.clone());
-          return res;
-        })
-        .catch(() => null);
-      if (cached) {
-        event.waitUntil(network);
-        return cached;
-      }
-      return (await network) || new Response('Çevrimdışı', { status: 503, statusText: 'Offline' });
-    })
-  );
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE);
+    const cached = await cache.match(req.mode === 'navigate' ? './index.html' : req, { ignoreSearch: true });
+    if (cached) return cached;
+    try { return await fetch(req); } catch (_) { return new Response('Çevrimdışı', { status: 503, statusText: 'Offline' }); }
+  })());
 });

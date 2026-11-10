@@ -8,7 +8,7 @@
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
 const PRE_V3_BACKUP_KEY = 'ironlog.backup.pre-v3';
 const DATA_VERSION = 3;
-const APP_VERSION = '4.0.1';
+const APP_VERSION = '4.0.2';
 const WAIST_EVERY_DAYS = 14;
 
 /* Eski programın hareket adları: sadece arşivdeki eski kayıtlara isim vermek için (veri geçişinde kullanılır). */
@@ -56,8 +56,9 @@ function todayStr() {
 /* ---------------- Program sorguları ---------------- */
 
 const SESSION_TYPES = PROGRAM.rotation;
-const sessionDef = (type) => PROGRAM.sessions[type];
-const exDef = (id) => PROGRAM.exercises[id];
+const own = (o, k) => (typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined);
+const sessionDef = (type) => own(PROGRAM.sessions, type);
+const exDef = (id) => own(PROGRAM.exercises, id);
 const slotDef = (type, key) => (sessionDef(type) ? sessionDef(type).slots.find((s) => s.key === key) : null);
 
 /** Bir setin zorluk hedefi ("1–2 kala", "2 kala", "tükeniş"). */
@@ -134,7 +135,7 @@ function archiveFromOld(s, partial) {
   if (!finishedAt) return null;
   return {
     id: typeof s.id === 'string' ? s.id : uid(),
-    day: typeof s.day === 'string' ? s.day : '?',
+    day: s.day === 'A' || s.day === 'B' ? s.day : '?',
     week: Number.isInteger(s.week) ? s.week : null,
     deload: !!s.deload,
     partial: !!(partial || s.partial),
@@ -161,7 +162,10 @@ function migrate(raw) {
     if (raw.timer && typeof raw.timer === 'object' && Number.isFinite(raw.timer.end)) {
       st.timer = { end: raw.timer.end, total: Number(raw.timer.total) || 60, label: String(raw.timer.label || '') };
     }
-    st.migration = raw.migration && typeof raw.migration === 'object' ? raw.migration : null;
+    const m = raw.migration;
+    st.migration = m && typeof m === 'object'
+      ? { from: Number(m.from) || 1, at: typeof m.at === 'string' ? m.at : '', archived: Number(m.archived) || 0, dismissed: !!m.dismissed }
+      : null;
     st.deloadMode = !!raw.deloadMode;
     st.deloadSince = st.deloadMode && typeof raw.deloadSince === 'string' ? raw.deloadSince : null;
     st.regressionDismissed = typeof raw.regressionDismissed === 'string' ? raw.regressionDismissed : null;
@@ -284,7 +288,8 @@ function buildSession(type, deload, short) {
 
 /* ---------------- Öneri mantığı ---------------- */
 
-const bigStepOn = (exId) => !!(state.exSettings[exId] && state.exSettings[exId].bigStep);
+const exCfg = (exId) => own(state.exSettings, exId) || {};
+const bigStepOn = (exId) => !!exCfg(exId).bigStep;
 /** Artırma için gereken tekrar: üst sınır (büyük adım açıksa üst sınır + 2). */
 const topThreshold = (sl) => sl.reps[1] + (bigStepOn(sl.ex) ? PROGRAM.bigStep.extraReps : 0);
 
@@ -338,6 +343,7 @@ function setTarget(sess, e, j) {
   if (!sl || s.lr == null) return '';
   const last = s.lw != null ? `${fmt(s.lw)}×${s.lr}` : `${s.lr}`;
   if (s.lw != null && s.w != null && s.w > s.lw) return `Geçen ${last} · yeni kilo, hedef ${sl.reps[0]}+`;
+  if (s.lw != null && s.w != null && s.w < s.lw) return `Geçen ${last} · daha hafif kilo, hedef ${sl.reps[0]}–${sl.reps[1]}`;
   return `Geçen ${last} → hedef ${Math.min(s.lr + 1, topThreshold(sl))}`;
 }
 
@@ -392,11 +398,6 @@ function render() {
   else if (ui.tab === 'settings') app.innerHTML = renderSettings();
   else app.innerHTML = state.current && ui.inWorkout ? renderWorkout() : renderHome();
   updateWakeLock();
-}
-
-function effortSummary(sl) {
-  if (sl.effort === 'lastFail') return 'son set tükeniş';
-  return PROGRAM.effortLabels[sl.effort === 'rir2' ? 'rir2' : 'rir12'];
 }
 
 function renderMigrationBanner() {
@@ -492,7 +493,7 @@ function renderHome() {
     </section>
     ${(() => { const w = state.deloadMode ? null : regressionWarning(); return w ? `<section class="card calm">
       <p style="margin:0 0 10px">Birkaç harekette gerileme var; yük azaltma haftası düşünebilirsin.</p>
-      <button class="btn ghost" data-act="dismiss-regression" data-id="${w}">Kapat</button>
+      <button class="btn ghost" data-act="dismiss-regression" data-id="${esc(w)}">Kapat</button>
     </section>` : ''; })()}
 
     <section class="card">
@@ -522,7 +523,8 @@ function countSets(sess) {
   let total = 0, done = 0;
   sess.entries.forEach((e) => {
     const sl = slotDef(sess.type, e.slot);
-    const opt = sl && sl.optional;
+    if (!sl || !exDef(e.ex)) return; // programdan çıkarılmış hareket: ekranda yok, eksik de sayılmaz
+    const opt = sl.optional;
     e.sets.forEach((s) => { if (!opt) total++; if (s.done && !opt) done++; });
   });
   return { total, done };
@@ -621,7 +623,7 @@ function renderExercise(sess, e, i) {
   const bodyweight = ex.load === 'bodyweight';
   const live = !ui.editId;
   const title = e.sub ? ex.sub : ex.name;
-  const cfg = state.exSettings[e.ex] || {};
+  const cfg = exCfg(e.ex);
 
   // İsteğe bağlı hareket bugün atlandıysa küçük kart
   if (e.skipped) {
@@ -1088,7 +1090,7 @@ function unlockAudio() {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (AC) audioCtx = new AC();
     }
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    if (audioCtx && audioCtx.state !== 'running') audioCtx.resume().catch(() => {});
   } catch (_) {}
 }
 
@@ -1096,6 +1098,7 @@ function beep() {
   try { if (navigator.vibrate) navigator.vibrate([300, 150, 300]); } catch (_) {}
   if (!audioCtx) return;
   try {
+    if (audioCtx.state !== 'running') audioCtx.resume().catch(() => {});
     const t0 = audioCtx.currentTime;
     [0, 0.35, 0.7].forEach((off) => {
       const o = audioCtx.createOscillator();
@@ -1163,6 +1166,12 @@ function updateTimer() {
   }
 }
 
+/** Uygulama açılınca / öne gelince: süresi çoktan (1 dk+) dolmuş sayaç sessizce kapanır. */
+function resumeTimer() {
+  if (!state.timer) return;
+  if (state.timer.end < Date.now() - 60000) stopTimer(); else runTimer();
+}
+
 function adjustTimer(delta) {
   if (!state.timer) return;
   state.timer.end += delta * 1000;
@@ -1174,17 +1183,23 @@ function adjustTimer(delta) {
 /* ---------------- Ekranın kapanmasını engelle ---------------- */
 
 let wakeLock = null;
+let wakeBusy = false;
 async function updateWakeLock() {
-  const want = !!state.current && document.visibilityState === 'visible';
+  if (wakeBusy) return; // aynı anda iki istek gitmesin (fazladan kilit açık kalırdı)
+  wakeBusy = true;
   try {
-    if (want && !wakeLock && 'wakeLock' in navigator) {
-      wakeLock = await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener('release', () => { wakeLock = null; });
-    } else if (!want && wakeLock) {
-      await wakeLock.release();
-      wakeLock = null;
+    const want = () => !!state.current && document.visibilityState === 'visible';
+    if (want() && !wakeLock && 'wakeLock' in navigator) {
+      const lock = await navigator.wakeLock.request('screen');
+      lock.addEventListener('release', () => { if (wakeLock === lock) wakeLock = null; });
+      wakeLock = lock;
+    }
+    if (!want() && wakeLock) {
+      const lock = wakeLock; wakeLock = null;
+      await lock.release();
     }
   } catch (_) { wakeLock = null; }
+  wakeBusy = false;
 }
 
 /* ---------------- Aksiyonlar ---------------- */
@@ -1199,7 +1214,13 @@ function toastUndo(msg, undoFn, ms = 6000) {
   toastTimer = setTimeout(() => { t.hidden = true; ui.undo = null; }, ms);
 }
 
-function setRowRefresh(i, j) {
+function clearUndo() {
+  ui.undo = null;
+  clearTimeout(toastTimer);
+  const t = $('#toast'); if (t) t.hidden = true;
+}
+
+function setRowRefresh(i, j, force) {
   // Tek bir seti ve ilerleme çubuğunu yerinde günceller (sayfa kaymasın diye tam yenileme yapmaz)
   const sess = activeSess();
   const row = document.getElementById(`set-${i}-${j}`);
@@ -1214,7 +1235,7 @@ function setRowRefresh(i, j) {
   if (tg) tg.textContent = setTarget(sess, sess.entries[i], j);
   ['w', 'r'].forEach((f) => {
     const inp = row.querySelector(`input[data-f="${f}"]`);
-    if (inp && document.activeElement !== inp) inp.value = s[f] == null ? '' : (f === 'w' ? fmt(s[f]) : s[f]);
+    if (inp && (force || document.activeElement !== inp)) inp.value = s[f] == null ? '' : (f === 'w' ? fmt(s[f]) : s[f]);
   });
   refreshProgress();
 }
@@ -1239,6 +1260,7 @@ function toggleSet(i, j) {
     if (inp) inp.focus();
     return;
   }
+  if (s.r === 0) { toast('Tekrar sayısını gir'); return; }
   const prevR = s.r;
   if (s.r == null) s.r = s.pr ?? sl.reps[0];
   s.done = true;
@@ -1250,12 +1272,12 @@ function toggleSet(i, j) {
   if (partner != null && sl.ssPos === 1) {
     // Süpersetin ilk hareketi: dinlenmeden ikinciye geç
     stopTimer();
-    toastUndo(`Dinlenmeden: ${exDef(sess.entries[partner].ex).name}`, undo);
+    toastUndo(`Dinlenmeden: ${sess.entries[partner].name}`, undo);
     const card = document.getElementById('ex-' + partner);
     if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return;
   }
-  startTimer(sl.rest, `${ex.name}${partner != null ? ' (süperset)' : ''} · dinlenme`);
+  startTimer(sl.rest, `${e.sub ? ex.sub : ex.name}${partner != null ? ' (süperset)' : ''} · dinlenme`);
   toastUndo(`Set ${j + 1} kaydedildi`, undo);
 }
 
@@ -1271,18 +1293,20 @@ function stepValue(i, j, f, d) {
     v = Math.max(0, Math.round(v * 100) / 100);
     s.w = v;
     // Aynı kilodaki sonraki yapılmamış setleri de güncelle
-    for (let k = j + 1; k < e.sets.length; k++) if (!e.sets[k].done && e.sets[k].w === old) { e.sets[k].w = v; setRowRefresh(i, k); }
+    for (let k = j + 1; k < e.sets.length; k++) if (!e.sets[k].done && e.sets[k].w === old) { e.sets[k].w = v; setRowRefresh(i, k, true); }
   } else {
     const sl = slotDef(sess.type, e.slot);
     const base = s.r == null ? (s.pr ?? sl.reps[0]) : s.r;
     s.r = Math.max(0, base + d);
   }
   save();
-  setRowRefresh(i, j);
+  setRowRefresh(i, j, true); // kutu odakta olsa bile (iPhone'da düğme odağı almaz) yeni değeri yaz
+  if (f === 'w') ui.prevW = s.w;
 }
 
 function finishWorkout() {
   const cur = state.current;
+  clearUndo();
   const { total, done } = countSets(cur);
   const anyDone = cur.entries.some((e) => e.sets.some((s) => s.done));
   if (!anyDone) {
@@ -1361,6 +1385,7 @@ function toggleSkip(i) {
 function startEdit(id) {
   const s = state.sessions.find((x) => x.id === id);
   if (!s) return;
+  clearUndo();
   ui.editId = id;
   ui.editBackup = JSON.parse(JSON.stringify(s));
   ui.open.clear();
@@ -1369,6 +1394,7 @@ function startEdit(id) {
 }
 
 function endEdit(revert) {
+  clearUndo();
   if (revert && ui.editBackup) {
     const i = state.sessions.findIndex((x) => x.id === ui.editId);
     if (i >= 0) state.sessions[i] = ui.editBackup;
@@ -1431,10 +1457,10 @@ function importData(file) {
       const msg = `Yedekte ${next.sessions.length} seans, ${next.archive.length} arşiv kaydı, ${next.body.length} kilo ve ${next.waist.length} bel kaydı var.\n\nBu telefondaki mevcut veriler yedektekiyle DEĞİŞTİRİLSİN mi?`;
       if (!confirm(msg)) return;
       if (next.migration) next.migration.dismissed = true;
+      next.timer = null; // yedekteki eski sayaç geri gelmesin
       state = next;
-      save();
-      ui.typeChoice = null;
-      if (state.timer) runTimer(); else stopTimer();
+      ui.typeChoice = null; ui.summary = null; ui.inWorkout = false; ui.editId = null; ui.editBackup = null; ui.open.clear();
+      stopTimer();
       render();
       toast('Yedek yüklendi');
     } catch (e) {
@@ -1455,7 +1481,7 @@ document.addEventListener('click', (ev) => {
 
   switch (act) {
     case 'tab':
-      if (ui.editId && el.dataset.tab !== 'history') { ui.editId = null; ui.editBackup = null; }
+      if (ui.editId && el.dataset.tab !== 'history') { ui.editId = null; ui.editBackup = null; clearUndo(); }
       ui.tab = el.dataset.tab; render(); window.scrollTo(0, 0); break;
     case 'type':
       ui.typeChoice = el.dataset.type === nextTypeAuto() ? null : el.dataset.type; render(); break;
@@ -1487,7 +1513,8 @@ document.addEventListener('click', (ev) => {
       break;
     case 'bigstep': {
       const id = el.dataset.exId;
-      state.exSettings[id] = Object.assign({ bigStep: false, note: '' }, state.exSettings[id]);
+      if (!exDef(id)) break;
+      state.exSettings[id] = Object.assign({ bigStep: false, note: '' }, exCfg(id));
       state.exSettings[id].bigStep = !state.exSettings[id].bigStep;
       save(); render();
       break;
@@ -1524,6 +1551,7 @@ document.addEventListener('click', (ev) => {
       if (cur) finishWorkout(); break;
     case 'cancel':
       if (cur && confirm('Seans iptal edilsin mi? Bu seansta girdiğin setler silinir.')) {
+        clearUndo();
         state.current = null; ui.inWorkout = false; stopTimer(); save(); render(); window.scrollTo(0, 0);
       }
       break;
@@ -1555,7 +1583,8 @@ document.addEventListener('click', (ev) => {
     case 'import': $('#importFile').click(); break;
     case 'wipe':
       if (confirm('TÜM kayıtlar (seanslar, arşiv, kilo, bel) silinsin mi? Bu işlem geri alınamaz.') && confirm('Emin misin? Önce yedek almanı öneririm.')) {
-        state = defaultState(); stopTimer(); save(); ui.typeChoice = null; render(); toast('Tüm veriler silindi');
+        state = defaultState(); stopTimer(); save();
+        ui.typeChoice = null; ui.summary = null; ui.inWorkout = false; ui.open.clear(); render(); toast('Tüm veriler silindi');
       }
       break;
   }
@@ -1585,9 +1614,19 @@ document.addEventListener('change', (ev) => {
   const inp = ev.target;
   if (inp.dataset && inp.dataset.exnote) {
     const id = inp.dataset.exnote;
-    state.exSettings[id] = Object.assign({ bigStep: false, note: '' }, state.exSettings[id]);
-    state.exSettings[id].note = inp.value.trim().slice(0, 300);
-    save(); render(); toast('Makine ayarı notu kaydedildi');
+    if (!exDef(id)) return;
+    state.exSettings[id] = Object.assign({ bigStep: false, note: '' }, exCfg(id));
+    const note = inp.value.trim().slice(0, 300);
+    state.exSettings[id].note = note;
+    save();
+    const card = inp.closest('.ex');
+    const h3 = card && card.querySelector('.ex-head h3');
+    if (h3) {
+      let el = card.querySelector('.machine-note');
+      if (note && !el) { el = document.createElement('div'); el.className = 'machine-note'; h3.after(el); }
+      if (el) { if (note) el.textContent = '⚙ ' + note; else el.remove(); }
+    }
+    toast('Makine ayarı notu kaydedildi');
     return;
   }
   if (inp.id === 'progEx') { ui.progEx = inp.value; render(); return; }
@@ -1633,7 +1672,7 @@ document.addEventListener('keydown', (ev) => {
 });
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && state.timer) runTimer();
+  if (document.visibilityState === 'visible') { resumeTimer(); checkForUpdate(); }
   updateWakeLock();
 });
 
@@ -1642,10 +1681,23 @@ setInterval(() => {
   if (el && activeSess() && !ui.editId) el.textContent = elapsedText(activeSess());
 }, 20000);
 
+// Ana ekrandan açılan uygulama günlerce bellekte kalabilir: öne geldikçe yeni sürüm var mı diye bak
+let swReg = null;
+let lastUpdateCheck = Date.now();
+function checkForUpdate() {
+  if (!swReg || Date.now() - lastUpdateCheck < 3600000) return;
+  lastUpdateCheck = Date.now();
+  swReg.update().catch(() => {});
+}
+
 /* ---------------- Başlat ---------------- */
 
+// Güncelleme sırasında sayfa kendini yenilediyse seans ekranına geri dön
+try {
+  if (sessionStorage.getItem('ironlog.resume') === '1') { sessionStorage.removeItem('ironlog.resume'); if (state.current) ui.inWorkout = true; }
+} catch (_) {}
 render();
-if (state.timer) runTimer();
+resumeTimer();
 
 if (navigator.storage && navigator.storage.persist) {
   navigator.storage.persist().catch(() => {});
@@ -1659,8 +1711,9 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!hadController || reloaded) return;
       reloaded = true;
+      try { if (state.current && ui.inWorkout) sessionStorage.setItem('ironlog.resume', '1'); } catch (_) {}
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch(() => {});
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then((r) => { swReg = r; }).catch(() => {});
   });
 }
