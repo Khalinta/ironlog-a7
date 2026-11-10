@@ -212,10 +212,11 @@ function nextTypeAuto() {
 const doneSets = (entry) => (entry ? entry.sets.filter((s) => s.done) : []);
 
 /** Aynı seans türündeki aynı hareket yuvasının son kaydı (ör. Üst A'daki lat pulldown yalnızca önceki Üst A ile). */
-function lastSlotEntry(type, slotKey, beforeId) {
+function lastSlotEntry(type, slotKey, excludeId, beforeIso) {
   for (let i = state.sessions.length - 1; i >= 0; i--) {
     const s = state.sessions[i];
-    if (s.type !== type || s.id === beforeId) continue;
+    if (s.type !== type || s.id === excludeId) continue;
+    if (beforeIso && s.finishedAt >= beforeIso) continue;
     const e = s.entries.find((x) => x.slot === slotKey);
     if (e && doneSets(e).length) return { session: s, entry: e };
   }
@@ -232,10 +233,11 @@ function buildSession(type) {
     const refSets = ref ? doneSets(ref.entry) : [];
     const sets = [];
     for (let j = 0; j < sl.sets; j++) {
+      // Ağırlık ve tekrar son kayıtla önceden dolu gelir
       const rs = refSets[j] || refSets[refSets.length - 1] || null;
       const w = ex.load !== 'bodyweight' && rs && rs.w != null ? rs.w : null;
-      const pr = rs && rs.r != null ? rs.r : sl.reps[0];
-      sets.push({ w, r: null, pr, done: false });
+      const r = rs && rs.r != null ? rs.r : sl.reps[0];
+      sets.push({ w, r, pr: r, done: false });
     }
     return { slot: sl.key, ex: sl.ex, name: ex.name, sets };
   });
@@ -247,6 +249,11 @@ function buildSession(type) {
 const ui = {
   tab: 'train',
   typeChoice: null,     // Ana ekranda elle seçilen seans (null = otomatik sıra)
+  inWorkout: false,     // Seans ekranı açık mı (açılışta yarım seans için "devam et" sorulur)
+  editId: null,         // Geçmişten düzenlenen seans
+  editBackup: null,
+  summary: null,        // Bitirilen seansın özeti
+  undo: null,
   open: new Set(),      // Açık kutular
   prevW: null,
 };
@@ -256,10 +263,10 @@ const ui = {
 function render() {
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === ui.tab));
   const app = $('#app');
-  if (ui.tab === 'history') app.innerHTML = renderHistory();
+  if (ui.tab === 'history') app.innerHTML = ui.editId ? renderWorkout() : renderHistory();
   else if (ui.tab === 'track') app.innerHTML = renderTrack();
   else if (ui.tab === 'settings') app.innerHTML = renderSettings();
-  else app.innerHTML = state.current ? renderWorkout() : renderHome();
+  else app.innerHTML = state.current && ui.inWorkout ? renderWorkout() : renderHome();
   updateWakeLock();
 }
 
@@ -317,8 +324,10 @@ function renderHome() {
       <div class="brand-sub">${esc(PROGRAM.name)}</div>
     </header>
     ${renderMigrationBanner()}
+    ${renderSummary()}
+    ${state.current ? renderResume() : ''}
 
-    <section class="card hero">
+    <section class="card hero ${state.current ? 'dim' : ''}">
       <div class="eyebrow">Sıradaki seans</div>
       <div class="hero-row">
         <div class="hero-day">${esc(def.name.split(' ')[1] || '')}</div>
@@ -342,49 +351,69 @@ function renderHome() {
 
     ${renderRules()}
 
-    <div class="sticky-cta">
+    ${state.current ? '' : `<div class="sticky-cta">
       <button class="btn primary" data-act="start">${esc(def.name)} seansına başla</button>
-    </div>`;
+    </div>`}`;
 }
 
-function countSets(cur) {
+/* ---------------- Seans ekranı ---------------- */
+
+/** Ekranda açık olan seans: canlı seans ya da geçmişten düzenlenen seans. */
+function activeSess() {
+  if (ui.editId) return state.sessions.find((s) => s.id === ui.editId) || null;
+  return state.current;
+}
+
+function countSets(sess) {
   let total = 0, done = 0;
-  cur.entries.forEach((e) => {
-    const sl = slotDef(cur.type, e.slot);
-    e.sets.forEach((s) => { if (!(sl && sl.optional)) total++; if (s.done && !(sl && sl.optional)) done++; });
+  sess.entries.forEach((e) => {
+    const sl = slotDef(sess.type, e.slot);
+    const opt = sl && sl.optional;
+    e.sets.forEach((s) => { if (!opt) total++; if (s.done && !opt) done++; });
   });
   return { total, done };
 }
 
-function elapsedText(cur) {
-  const min = Math.max(0, Math.floor((Date.now() - new Date(cur.startedAt).getTime()) / 60000));
+function elapsedText(sess) {
+  const end = sess.finishedAt ? new Date(sess.finishedAt).getTime() : Date.now();
+  const min = Math.max(0, Math.floor((end - new Date(sess.startedAt).getTime()) / 60000));
   return `${min} dk`;
 }
 
+function weightStep(exId) {
+  const ex = exDef(exId);
+  const ls = ex && PROGRAM.loadSteps[ex.load];
+  return ls ? ls.step : 0;
+}
+
 function renderWorkout() {
-  const cur = state.current;
-  const { total, done } = countSets(cur);
+  const sess = activeSess();
+  const edit = !!ui.editId;
+  const { total, done } = countSets(sess);
   return `
     <div class="wk-head">
       <div>
-        <div class="eyebrow">Seans</div>
-        <div class="title">${esc(cur.name)}</div>
+        <div class="eyebrow">${edit ? `Düzenleme · ${fmtDate(sess.finishedAt, true)}` : 'Seans'}</div>
+        <div class="title">${esc(sess.name)}</div>
       </div>
       <div class="prog"><b id="prog">${done}/${total}</b><span>set</span></div>
     </div>
     <div class="progress"><div id="progbar" style="width:${total ? (done / total) * 100 : 0}%"></div></div>
-    <div class="wk-meta"><span>⏱ <span id="elapsed">${elapsedText(cur)}</span></span></div>
+    <div class="wk-meta"><span>⏱ <span id="elapsed">${elapsedText(sess)}</span></span>${edit ? '<span>Değişiklikler hemen kaydedilir</span>' : ''}</div>
 
-    ${cur.entries.map((e, i) => renderExercise(cur, e, i)).join('')}
+    ${sess.entries.map((e, i) => renderExercise(sess, e, i)).join('')}
 
-    <button class="btn good" data-act="finish" style="margin-top:6px">Seansı bitir ve kaydet</button>
-    <button class="btn danger" data-act="cancel">Seansı iptal et</button>`;
+    ${edit ? `
+      <button class="btn good" data-act="edit-done" style="margin-top:6px">Düzenlemeyi bitir</button>
+      <button class="btn danger" data-act="edit-revert">Değişiklikleri geri al</button>` : `
+      <button class="btn good" data-act="finish" style="margin-top:6px">Seansı bitir ve kaydet</button>
+      <button class="btn danger" data-act="cancel">Seansı iptal et</button>`}`;
 }
 
-function supersetPartner(cur, i) {
-  const sl = slotDef(cur.type, cur.entries[i].slot);
+function supersetPartner(sess, i) {
+  const sl = slotDef(sess.type, sess.entries[i].slot);
   if (!sl || !sl.ss) return null;
-  const j = cur.entries.findIndex((x, k) => k !== i && (slotDef(cur.type, x.slot) || {}).ss === sl.ss);
+  const j = sess.entries.findIndex((x, k) => k !== i && (slotDef(sess.type, x.slot) || {}).ss === sl.ss);
   return j >= 0 ? j : null;
 }
 
@@ -396,19 +425,31 @@ function renderForm(ex) {
   }).join('');
 }
 
-function renderExercise(cur, e, i) {
-  const sl = slotDef(cur.type, e.slot);
+const MINUS_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg>';
+const PLUS_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg>';
+
+function stepper(i, j, f, value, label) {
+  return `
+    <div class="stepper">
+      <button class="sbtn" data-act="step" data-ex="${i}" data-set="${j}" data-f="${f}" data-d="-1" aria-label="${label} azalt">${MINUS_SVG}</button>
+      <input data-ex="${i}" data-set="${j}" data-f="${f}" type="text" inputmode="${f === 'w' ? 'decimal' : 'numeric'}" ${f === 'r' ? 'pattern="[0-9]*"' : ''} autocomplete="off" value="${value == null ? '' : (f === 'w' ? fmt(value) : value)}" placeholder="–" aria-label="${label}">
+      <button class="sbtn" data-act="step" data-ex="${i}" data-set="${j}" data-f="${f}" data-d="1" aria-label="${label} artır">${PLUS_SVG}</button>
+    </div>`;
+}
+
+function renderExercise(sess, e, i) {
+  const sl = slotDef(sess.type, e.slot);
   const ex = exDef(e.ex);
   if (!sl || !ex) return '';
   const n = e.sets.length;
   const bodyweight = ex.load === 'bodyweight';
 
-  const ref = lastSlotEntry(cur.type, sl.key, cur.id);
-  let lastHtml = '';
+  const ref = lastSlotEntry(sess.type, sl.key, sess.id, sess.finishedAt);
+  let lastHtml;
   if (ref) {
     const ds = doneSets(ref.entry);
     const vals = bodyweight ? ds.map((s) => `${fmt(s.r)}`).join(' · ') : ds.map((s) => `${fmt(s.w)}×${fmt(s.r)}`).join(' · ');
-    lastHtml = `<div class="last">Son ${esc(cur.name)}: <b>${vals}</b> <span>(${fmtDate(ref.session.finishedAt)})</span></div>`;
+    lastHtml = `<div class="last">Son ${esc(sess.name)}: <b>${vals}</b> <span>(${fmtDate(ref.session.finishedAt)})</span></div>`;
   } else {
     lastHtml = `<div class="last">Bu seansta henüz kaydı yok.</div>`;
   }
@@ -418,9 +459,9 @@ function renderExercise(cur, e, i) {
   if (sl.effortNote) notes += `<div class="note blue">${esc(sl.effortNote)}</div>`;
   if (sl.note) notes += `<div class="note blue">${esc(sl.note)}</div>`;
 
-  const partner = supersetPartner(cur, i);
+  const partner = supersetPartner(sess, i);
   let restText = sl.restNote ? esc(sl.restNote) : `${fmtRest(sl.rest)} dinlenme`;
-  if (partner != null && sl.ssPos === 1) restText = `ardından dinlenmeden ${esc(exDef(cur.entries[partner].ex).name)}`;
+  if (partner != null && sl.ssPos === 1) restText = `ardından dinlenmeden ${esc(exDef(sess.entries[partner].ex).name)}`;
   if (partner != null && sl.ssPos === 2) restText = `tur bitince ${fmtRest(sl.rest)} dinlenme`;
   const tags = [
     partner != null ? `<span class="tag ss-tag">Süperset ${sl.ssPos}/2</span>` : '',
@@ -428,13 +469,22 @@ function renderExercise(cur, e, i) {
     ex.perSide ? '<span class="tag">Her kol</span>' : '',
   ].join('');
 
-  const sets = e.sets.map((s, j) => `
-    <div class="set ${s.done ? 'done' : ''} ${bodyweight ? 'noweight' : ''}">
-      <span class="n">${j + 1}<small class="eff ${effortFor(sl, j, n) === PROGRAM.effortLabels.fail ? 'fail' : ''}">${esc(effortFor(sl, j, n))}</small></span>
-      ${bodyweight ? '' : `<label class="fld"><input data-ex="${i}" data-set="${j}" data-f="w" type="text" inputmode="decimal" enterkeyhint="next" autocomplete="off" value="${s.w == null ? '' : fmt(s.w)}" placeholder="–" aria-label="Set ${j + 1} ağırlık"></label>`}
-      <label class="fld"><input data-ex="${i}" data-set="${j}" data-f="r" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" value="${s.r == null ? '' : s.r}" placeholder="${s.pr ?? sl.reps[0]}" aria-label="Set ${j + 1} tekrar"></label>
-      <button class="chk" data-act="check" data-ex="${i}" data-set="${j}" aria-label="Set ${j + 1} tamam">${CHECK_SVG}</button>
-    </div>`).join('');
+  const sets = e.sets.map((s, j) => {
+    const eff = effortFor(sl, j, n);
+    return `
+    <div class="set2 ${s.done ? 'done' : ''}" id="set-${i}-${j}">
+      <div class="set2-top">
+        <span class="sn">Set ${j + 1}</span>
+        <span class="eff ${eff === PROGRAM.effortLabels.fail ? 'fail' : ''}">${esc(eff)}</span>
+        <span class="grow"></span>
+        <button class="chk" data-act="check" data-ex="${i}" data-set="${j}" aria-label="Set ${j + 1} ${s.done ? 'tiki kaldır' : 'tamam'}">${CHECK_SVG}</button>
+      </div>
+      <div class="set2-row ${bodyweight ? 'bw' : ''}">
+        ${bodyweight ? '' : stepper(i, j, 'w', s.w, `Set ${j + 1} ağırlık`)}
+        ${stepper(i, j, 'r', s.r, `Set ${j + 1} tekrar`)}
+      </div>
+    </div>`;
+  }).join('');
 
   const formKey = `form-${i}`, subKey = `sub-${i}`;
   const toggles = [
@@ -455,7 +505,7 @@ function renderExercise(cur, e, i) {
       ${lastHtml}
       ${notes}
       <div class="sets">
-        <div class="set-head ${bodyweight ? 'noweight' : ''}"><span>Hedef</span>${bodyweight ? '' : '<span>kg</span>'}<span>${ex.perSide ? 'tekrar / kol' : 'tekrar'}</span><span></span></div>
+        <div class="set2-head ${bodyweight ? 'bw' : ''}">${bodyweight ? '' : `<span>kg <small>(±${fmt(weightStep(e.ex))})</small></span>`}<span>${ex.perSide ? 'tekrar / kol' : 'tekrar'}</span></div>
         ${sets}
       </div>
       <div class="toggles" style="grid-template-columns:repeat(${toggles.length},1fr)">${toggles.join('')}</div>
@@ -465,11 +515,68 @@ function renderExercise(cur, e, i) {
 }
 
 function refreshProgress() {
-  const cur = state.current;
-  if (!cur) return;
-  const { total, done } = countSets(cur);
+  const sess = activeSess();
+  if (!sess) return;
+  const { total, done } = countSets(sess);
   const p = $('#prog'); if (p) p.textContent = `${done}/${total}`;
   const b = $('#progbar'); if (b) b.style.width = `${total ? (done / total) * 100 : 0}%`;
+}
+
+/** Bir hareketin en iyi performansı: en yüksek kilo, eşitse o kilodaki toplam tekrar. */
+function perf(entry, bodyweight) {
+  const ds = doneSets(entry);
+  if (!ds.length) return null;
+  if (bodyweight) return { w: 0, r: ds.reduce((a, s) => a + (s.r || 0), 0) };
+  const w = Math.max(...ds.map((s) => s.w || 0));
+  return { w, r: ds.filter((s) => (s.w || 0) === w).reduce((a, s) => a + (s.r || 0), 0) };
+}
+
+/** Seans özeti: süre, tamamlanan set, geçen sefere göre artan hareketler. */
+function sessionSummary(sess) {
+  const { done } = countSets(sess);
+  const optDone = sess.entries.filter((e) => (slotDef(sess.type, e.slot) || {}).optional).reduce((a, e) => a + doneSets(e).length, 0);
+  const improved = [];
+  sess.entries.forEach((e) => {
+    const bw = exDef(e.ex) && exDef(e.ex).load === 'bodyweight';
+    const now = perf(e, bw);
+    const ref = lastSlotEntry(sess.type, e.slot, sess.id, sess.finishedAt);
+    const before = ref && perf(ref.entry, bw);
+    if (now && before && (now.w > before.w || (now.w === before.w && now.r > before.r))) {
+      improved.push(bw ? `${e.name}: ${before.r} → ${now.r} tekrar` : (now.w > before.w ? `${e.name}: ${fmt(before.w)} → ${fmt(now.w)} kg` : `${e.name}: ${fmt(now.w)} kg'da ${before.r} → ${now.r} tekrar`));
+    }
+  });
+  return { name: sess.name, minutes: elapsedText(sess), sets: done + optDone, improved };
+}
+
+function renderSummary() {
+  const s = ui.summary;
+  if (!s) return '';
+  return `
+    <section class="card summary">
+      <div class="eyebrow">Seans bitti</div>
+      <h2 style="margin-top:4px">${esc(s.name)}</h2>
+      <div class="stat-row">
+        <div class="stat"><b>${esc(s.minutes)}</b><span>Süre</span></div>
+        <div class="stat"><b>${s.sets}</b><span>Set</span></div>
+        <div class="stat accent"><b>${s.improved.length}</b><span>Artan</span></div>
+      </div>
+      ${s.improved.length ? `<ul class="bullets plain">${s.improved.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="muted small" style="margin:10px 0 0">Geçen sefere göre artan hareket yok ya da bu seansın ilk kaydı.</p>'}
+      <button class="btn ghost" data-act="close-summary" style="margin-top:10px">Tamam</button>
+    </section>`;
+}
+
+function renderResume() {
+  const cur = state.current;
+  const { total, done } = countSets(cur);
+  return `
+    <section class="card hero resume">
+      <div class="eyebrow">Yarım kalan seans</div>
+      <div class="hero-title" style="margin-top:6px">${esc(cur.name)}</div>
+      <p class="muted small" style="margin:4px 0 12px">${fmtDate(cur.startedAt, true)} başladı · ${done}/${total} set tamam</p>
+      <button class="btn primary" data-act="resume">Seansa devam et</button>
+      <button class="btn" data-act="finish">Bitir ve kaydet</button>
+      <button class="btn danger" data-act="cancel">İptal et</button>
+    </section>`;
 }
 
 function renderHistory() {
@@ -487,7 +594,10 @@ function renderHistory() {
           <div class="muted small">${fmtDate(s.finishedAt, true)}</div>
         </div>
         ${rows}
-        <button class="btn danger hist-del" data-act="del-session" data-id="${esc(s.id)}">Bu kaydı sil</button>
+        <div class="hist-actions">
+          <button class="btn hist-del" data-act="edit-session" data-id="${esc(s.id)}">Düzenle</button>
+          <button class="btn danger hist-del" data-act="del-session" data-id="${esc(s.id)}">Sil</button>
+        </div>
       </section>`;
   }).join('');
 
@@ -636,6 +746,7 @@ let toastTimer;
 function toast(msg, ms = 2600) {
   const t = $('#toast');
   t.textContent = msg;
+  ui.undo = null;
   t.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { t.hidden = true; }, ms);
@@ -751,16 +862,44 @@ async function updateWakeLock() {
 
 /* ---------------- Aksiyonlar ---------------- */
 
+/** "Geri al" düğmeli bildirim. */
+function toastUndo(msg, undoFn, ms = 6000) {
+  const t = $('#toast');
+  t.innerHTML = `<span>${esc(msg)}</span><button class="undo" data-act="undo">Geri al</button>`;
+  t.hidden = false;
+  ui.undo = undoFn;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; ui.undo = null; }, ms);
+}
+
+function setRowRefresh(i, j) {
+  // Tek bir seti ve ilerleme çubuğunu yerinde günceller (sayfa kaymasın diye tam yenileme yapmaz)
+  const sess = activeSess();
+  const row = document.getElementById(`set-${i}-${j}`);
+  if (!row) { render(); return; }
+  const s = sess.entries[i].sets[j];
+  row.classList.toggle('done', s.done);
+  const card = document.getElementById(`ex-${i}`);
+  if (card) card.classList.toggle('all-done', sess.entries[i].sets.every((x) => x.done));
+  ['w', 'r'].forEach((f) => {
+    const inp = row.querySelector(`input[data-f="${f}"]`);
+    if (inp && document.activeElement !== inp) inp.value = s[f] == null ? '' : (f === 'w' ? fmt(s[f]) : s[f]);
+  });
+  refreshProgress();
+}
+
 function toggleSet(i, j) {
-  const cur = state.current;
-  const e = cur.entries[i];
-  const sl = slotDef(cur.type, e.slot);
+  const sess = activeSess();
+  const live = !ui.editId;
+  const e = sess.entries[i];
+  const sl = slotDef(sess.type, e.slot);
   const ex = exDef(e.ex);
   const s = e.sets[j];
   if (s.done) {
     s.done = false;
     save();
-    render();
+    setRowRefresh(i, j);
+    toast('Tik kaldırıldı');
     return;
   }
   if (ex.load !== 'bodyweight' && s.w == null) {
@@ -769,21 +908,46 @@ function toggleSet(i, j) {
     if (inp) inp.focus();
     return;
   }
+  const prevR = s.r;
   if (s.r == null) s.r = s.pr ?? sl.reps[0];
   s.done = true;
   save();
-  const partner = supersetPartner(cur, i);
+  setRowRefresh(i, j);
+  const undo = () => { s.done = false; s.r = prevR; save(); if (live) stopTimer(); setRowRefresh(i, j); };
+  if (!live) { toastUndo(`Set ${j + 1} kaydedildi`, undo); return; }
+  const partner = supersetPartner(sess, i);
   if (partner != null && sl.ssPos === 1) {
     // Süpersetin ilk hareketi: dinlenmeden ikinciye geç
     stopTimer();
-    render();
-    toast(`Dinlenmeden: ${exDef(cur.entries[partner].ex).name}`);
+    toastUndo(`Dinlenmeden: ${exDef(sess.entries[partner].ex).name}`, undo);
     const card = document.getElementById('ex-' + partner);
     if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return;
   }
   startTimer(sl.rest, `${ex.name}${partner != null ? ' (süperset)' : ''} · dinlenme`);
-  render();
+  toastUndo(`Set ${j + 1} kaydedildi`, undo);
+}
+
+/** Artı/eksi düğmesi. */
+function stepValue(i, j, f, d) {
+  const sess = activeSess();
+  const e = sess.entries[i];
+  const s = e.sets[j];
+  if (f === 'w') {
+    const step = weightStep(e.ex) || 1;
+    const old = s.w;
+    let v = (old == null ? 0 : old) + d * step;
+    v = Math.max(0, Math.round(v * 100) / 100);
+    s.w = v;
+    // Aynı kilodaki sonraki yapılmamış setleri de güncelle
+    for (let k = j + 1; k < e.sets.length; k++) if (!e.sets[k].done && e.sets[k].w === old) { e.sets[k].w = v; setRowRefresh(i, k); }
+  } else {
+    const sl = slotDef(sess.type, e.slot);
+    const base = s.r == null ? (s.pr ?? sl.reps[0]) : s.r;
+    s.r = Math.max(0, base + d);
+  }
+  save();
+  setRowRefresh(i, j);
 }
 
 function finishWorkout() {
@@ -793,17 +957,42 @@ function finishWorkout() {
   if (!anyDone) {
     if (!confirm('Hiç set tamamlanmadı. Seans kaydedilmeden kapatılsın mı?')) return;
     state.current = null;
+    ui.summary = null;
   } else {
     if (done < total && !confirm(`${total - done} set tamamlanmadı. Yine de bitirip kaydedeyim mi?`)) return;
     cur.finishedAt = new Date().toISOString();
     state.sessions.push(cur);
     state.current = null;
-    toast(`Kaydedildi 💪 Sıradaki: ${sessionDef(nextTypeAuto()).name}`, 3500);
+    ui.summary = sessionSummary(cur);
   }
+  ui.inWorkout = false;
   ui.typeChoice = null;
   ui.open.clear();
   stopTimer();
   save();
+  render();
+  window.scrollTo(0, 0);
+}
+
+function startEdit(id) {
+  const s = state.sessions.find((x) => x.id === id);
+  if (!s) return;
+  ui.editId = id;
+  ui.editBackup = JSON.parse(JSON.stringify(s));
+  ui.open.clear();
+  render();
+  window.scrollTo(0, 0);
+}
+
+function endEdit(revert) {
+  if (revert && ui.editBackup) {
+    const i = state.sessions.findIndex((x) => x.id === ui.editId);
+    if (i >= 0) state.sessions[i] = ui.editBackup;
+    save();
+    toast('Değişiklikler geri alındı');
+  }
+  ui.editId = null;
+  ui.editBackup = null;
   render();
   window.scrollTo(0, 0);
 }
@@ -882,18 +1071,38 @@ document.addEventListener('click', (ev) => {
 
   switch (act) {
     case 'tab':
+      if (ui.editId && el.dataset.tab !== 'history') { ui.editId = null; ui.editBackup = null; }
       ui.tab = el.dataset.tab; render(); window.scrollTo(0, 0); break;
     case 'type':
       ui.typeChoice = el.dataset.type === nextTypeAuto() ? null : el.dataset.type; render(); break;
     case 'start': {
+      if (state.current) break;
       const type = ui.typeChoice || nextTypeAuto();
       state.current = buildSession(type);
+      ui.inWorkout = true;
+      ui.summary = null;
       ui.open.clear();
       save(); render(); window.scrollTo(0, 0);
       break;
     }
     case 'check':
-      if (cur) toggleSet(Number(el.dataset.ex), Number(el.dataset.set)); break;
+      if (activeSess()) toggleSet(Number(el.dataset.ex), Number(el.dataset.set)); break;
+    case 'step':
+      if (activeSess()) stepValue(Number(el.dataset.ex), Number(el.dataset.set), el.dataset.f, Number(el.dataset.d)); break;
+    case 'undo': {
+      const fn = ui.undo; ui.undo = null; $('#toast').hidden = true;
+      if (fn) fn();
+      break;
+    }
+    case 'resume':
+      ui.inWorkout = true; ui.tab = 'train'; render(); window.scrollTo(0, 0); break;
+    case 'close-summary':
+      ui.summary = null; render(); break;
+    case 'edit-session': startEdit(el.dataset.id); break;
+    case 'edit-done': endEdit(false); break;
+    case 'edit-revert':
+      if (confirm('Bu düzenlemede yaptığın tüm değişiklikler geri alınsın mı?')) endEdit(true);
+      break;
     case 'toggle': {
       const k = el.dataset.key;
       ui.open.has(k) ? ui.open.delete(k) : ui.open.add(k);
@@ -903,7 +1112,7 @@ document.addEventListener('click', (ev) => {
       if (cur) finishWorkout(); break;
     case 'cancel':
       if (cur && confirm('Seans iptal edilsin mi? Bu seansta girdiğin setler silinir.')) {
-        state.current = null; stopTimer(); save(); render(); window.scrollTo(0, 0);
+        state.current = null; ui.inWorkout = false; stopTimer(); save(); render(); window.scrollTo(0, 0);
       }
       break;
     case 't-minus': adjustTimer(-15); break;
@@ -942,16 +1151,16 @@ document.addEventListener('click', (ev) => {
 
 document.addEventListener('focusin', (ev) => {
   const inp = ev.target;
-  if (!inp.matches || !inp.matches('input[data-f]') || !state.current) return;
-  const s = state.current.entries[inp.dataset.ex].sets[inp.dataset.set];
+  if (!inp.matches || !inp.matches('input[data-f]') || !activeSess()) return;
+  const s = activeSess().entries[inp.dataset.ex].sets[inp.dataset.set];
   ui.prevW = s.w;
   setTimeout(() => { try { inp.select(); } catch (_) {} }, 0);
 });
 
 document.addEventListener('input', (ev) => {
   const inp = ev.target;
-  if (!inp.matches('input[data-f]') || !state.current) return;
-  const s = state.current.entries[inp.dataset.ex].sets[inp.dataset.set];
+  if (!inp.matches('input[data-f]') || !activeSess()) return;
+  const s = activeSess().entries[inp.dataset.ex].sets[inp.dataset.set];
   if (inp.dataset.f === 'w') s.w = parseNum(inp.value);
   else s.r = parseNum(inp.value, true);
   save();
@@ -964,9 +1173,9 @@ document.addEventListener('change', (ev) => {
     inp.value = '';
     return;
   }
-  if (!inp.matches('input[data-f]') || !state.current) return;
+  if (!inp.matches('input[data-f]') || !activeSess()) return;
   const i = Number(inp.dataset.ex), j = Number(inp.dataset.set);
-  const e = state.current.entries[i];
+  const e = activeSess().entries[i];
   if (inp.dataset.f === 'w') {
     // Ağırlığı değiştirince, aynı ağırlıktaki sonraki yapılmamış setleri de güncelle
     const oldW = ui.prevW, newW = e.sets[j].w;
@@ -975,8 +1184,7 @@ document.addEventListener('change', (ev) => {
         const s = e.sets[k];
         if (!s.done && s.w === oldW) {
           s.w = newW;
-          const other = document.querySelector(`input[data-ex="${i}"][data-set="${k}"][data-f="w"]`);
-          if (other) other.value = fmt(newW);
+          setRowRefresh(i, k);
         }
       }
       save();
@@ -1008,7 +1216,7 @@ document.addEventListener('visibilitychange', () => {
 
 setInterval(() => {
   const el = document.getElementById('elapsed');
-  if (el && state.current) el.textContent = elapsedText(state.current);
+  if (el && activeSess() && !ui.editId) el.textContent = elapsedText(activeSess());
 }, 20000);
 
 /* ---------------- Başlat ---------------- */

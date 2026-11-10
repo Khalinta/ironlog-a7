@@ -22,8 +22,8 @@ const PROGRAM = {
 
   /* Ağırlık adımları (artı/eksi düğmeleri). load: machine | plate | dumbbell | bodyweight */
   loadSteps: {
-    machine: { unit: 'kg', step: 5 },   // 3. aşamada senin cevabına göre kesinleşecek (lbs sorusu)
-    plate: { unit: 'kg', step: 2.5 },
+    machine: { unit: 'kg', step: 4.5 },   // makinelerdeki 10 lbs ≈ 4,5 kg
+    plate: { unit: 'kg', step: 2.5 },     // plaka takılan aletler (Smith): her yana 1,25 kg
     dumbbell: { unit: 'kg', step: 2.5 },
     bodyweight: null,
   },
@@ -803,7 +803,7 @@ const PROGRAM = {
   "legpress": {
     "name": "Leg press",
     "muscle": "Ön bacak",
-    "load": "machine",
+    "load": "plate",
     "sub": "Hack squat makinesi",
     "form": [
       {
