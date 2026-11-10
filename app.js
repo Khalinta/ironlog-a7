@@ -1566,7 +1566,9 @@ document.addEventListener('focusin', (ev) => {
   if (!inp.matches || !inp.matches('input[data-f]') || !activeSess()) return;
   const s = activeSess().entries[inp.dataset.ex].sets[inp.dataset.set];
   ui.prevW = s.w;
-  setTimeout(() => { try { inp.select(); } catch (_) {} }, 0);
+  // Kolay düzenleme için yazıyı seç. Sadece kutu hâlâ odaktaysa: select() odağı geri çekebilir ve
+  // hızlı geçişlerde yazılan sayı önceki kutuya düşebilirdi.
+  setTimeout(() => { if (document.activeElement === inp) { try { inp.select(); } catch (_) {} } }, 0);
 });
 
 document.addEventListener('input', (ev) => {
