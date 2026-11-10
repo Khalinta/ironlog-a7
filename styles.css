@@ -407,3 +407,62 @@ select.text-in { -webkit-appearance: none; appearance: none; font-weight: 700; b
 .backup-hint { display: block; width: 100%; text-align: left; margin-bottom: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line2); background: var(--card2); color: #d6d6dc; font-size: 14px; }
 .backup-hint b { color: var(--red-hi); }
 @media (max-width: 360px) { .wk-row { grid-template-columns: 92px 1fr 48px; font-size: 14px; } }
+
+/* ---- Odak görünümü ---- */
+.wk-meta.has-view { align-items: center; }
+.viewseg { flex: none; display: grid; grid-template-columns: auto auto; border: 1px solid var(--line2); border-radius: 12px; overflow: hidden; background: var(--card2); }
+.viewseg button { min-height: 48px; padding: 0 14px; border: 0; background: transparent; color: var(--muted); font-size: 15px; font-weight: 750; }
+.viewseg button + button { border-left: 1px solid var(--line2); }
+.viewseg button.on { background: var(--red-bg2); color: #fff; box-shadow: inset 0 0 0 1px var(--red); }
+.fx .ex-tags { flex-wrap: wrap; }
+.fx .last { margin-top: 6px; }
+.fx .sug { font-size: 14px; padding: 8px 12px; margin-top: 8px; }
+.fx-set { margin-top: 12px; padding: 10px 8px; border-color: var(--line2); }
+.fx-set .set2-top .sn { font-size: 17px; }
+.fx-state { font-size: 13px; font-weight: 750; color: var(--red-hi); }
+.fx-done { margin-top: 10px; min-height: 60px; }
+.fx-act { margin-top: 10px; }
+.fx-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); gap: 6px; margin-top: 10px; }
+.fx-chip {
+  min-width: 0; min-height: 48px; padding: 2px 4px; border-radius: 12px; border: 1px solid var(--line);
+  background: transparent; color: var(--dim); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 750; line-height: 1.15; font-variant-numeric: tabular-nums;
+}
+.fx-chip small { font-size: 10px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.fx-chip span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-chip.done { background: var(--red-bg); border-color: rgba(229,20,31,.4); color: var(--text); }
+.fx-chip.cur { border-color: var(--red); color: #fff; box-shadow: inset 0 0 0 1px var(--red); }
+.fx-next { margin-top: 10px; font-size: 15px; color: var(--muted); }
+.fx-next b { color: var(--text); font-weight: 700; }
+.fx-auto { margin-top: 10px; }
+.fx-more { margin-top: 4px; }
+.fx-list { padding-bottom: 8px; }
+.fx-row {
+  display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 10px; width: 100%; min-height: 52px;
+  padding: 6px 6px; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--text); text-align: left; font-size: 15px; font-weight: 650;
+}
+.fx-row.ss { border-left: 3px solid var(--red); padding-left: 8px; }
+.fx-row .n { font-size: 14px; font-weight: 900; font-style: italic; color: var(--red); font-variant-numeric: tabular-nums; }
+.fx-row .nm { min-width: 0; overflow-wrap: anywhere; }
+.fx-row .nm small { display: block; font-size: 12px; font-weight: 600; color: var(--muted); }
+.fx-row .c { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 750; }
+.fx-row.done .c { color: var(--red-hi); }
+.fx-row.on { background: var(--red-bg); border-radius: 10px; }
+.fx-row.on .nm { color: #fff; }
+.fx-row.skipped { opacity: .65; }
+.fx-row.skipped .btn.mini { width: auto; }
+.fx-opt { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+@media (max-width: 360px) {
+  .viewseg button { padding: 0 10px; font-size: 14px; }
+  .fx-strip { grid-template-columns: repeat(auto-fit, minmax(52px, 1fr)); }
+  .fx-chip { font-size: 14px; }
+}
+.fx-lbl { display: block; margin-bottom: 4px; text-align: center; font-size: 12px; font-weight: 750; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.fx-lbl small { text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--dim); }
+@media (max-width: 360px) {
+  /* Dar ekranda kilo ve tekrar alt alta: 102,5 gibi değerler kesilmesin */
+  .fx-set .set2-row { grid-template-columns: 1fr; }
+  .fx-field { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 8px; }
+  .fx-lbl { margin: 0; text-align: left; font-size: 11px; letter-spacing: .04em; }
+  .fx-set .stepper { grid-template-columns: 52px 1fr 52px; }
+}
