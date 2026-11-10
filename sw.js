@@ -1,6 +1,6 @@
 /* IronLog service worker: uygulamayı internetsiz çalıştırır.
    Uygulama dosyalarını değiştirdiğinde CACHE sürümünü artır. */
-const CACHE = 'ironlog-v6';
+const CACHE = 'ironlog-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -8,10 +8,10 @@ const ASSETS = [
   './program.js',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon-180.png',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/icon-maskable-512.png',
+  './icons/logo-180.png',
+  './icons/logo-192.png',
+  './icons/logo-512.png',
+  './icons/logo-maskable-512.png',
 ];
 
 self.addEventListener('install', (event) => {

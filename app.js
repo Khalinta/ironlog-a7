@@ -8,7 +8,7 @@
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
 const PRE_V3_BACKUP_KEY = 'ironlog.backup.pre-v3';
 const DATA_VERSION = 3;
-const APP_VERSION = '4.0.0';
+const APP_VERSION = '4.0.1';
 const WAIST_EVERY_DAYS = 14;
 
 /* Eski programın hareket adları: sadece arşivdeki eski kayıtlara isim vermek için (veri geçişinde kullanılır). */
