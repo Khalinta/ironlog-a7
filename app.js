@@ -1967,8 +1967,8 @@ document.addEventListener('change', (ev) => {
     inp.value = val ? fmt(val) : '';
     const card = inp.closest('.ex');
     if (card) {
-      const sm = card.querySelector('.set2-head small');
-      if (sm) sm.textContent = `(±${fmt(weightStep(id))})`;
+      // Liste görünümü: .set2-head small, odak görünümü: .fx-lbl small
+      card.querySelectorAll('.set2-head small, .fx-lbl small').forEach((sm) => { sm.textContent = `(±${fmt(weightStep(id))})`; });
       const i = Number(card.id.replace('ex-', ''));
       const sess = activeSess();
       const wu = document.getElementById(`warm-${i}`);
