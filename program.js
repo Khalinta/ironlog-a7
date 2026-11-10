@@ -9,6 +9,7 @@
      rir12    = her set 1–2 tekrar kala
      rir2     = her set 2 tekrar kala
      lastFail = önceki setler 1–2 tekrar kala, son set tükeniş
+   warmup.plan: ısınma setleri (pct = çalışma kilosunun yüzdesi, bar = boş bar, light = çok hafif). Kaydedilmez.
    rest: setler arası dinlenme (saniye). Süpersette tur sonunda uygulanır.
    ss / ssPos: süperset grubu ve sırası (1 = önce, 2 = sonra; 1'den sonra dinlenme yok).
    ===================================================================== */
@@ -46,6 +47,7 @@ const PROGRAM = {
         "effort": "rir12",
         "rest": 150,
         "warmup": {
+          "plan": [{"pct":50,"reps":"8–10"},{"pct":75,"reps":"3–5"}],
           "sets": true,
           "text": "Seansın ilk hareketi: 2 ısınma seti. Yarı kiloyla 8–10 tekrar, 1 dakika dinlenme, sonra yaklaşık dörtte üç kiloyla 3–5 tekrar. İkisi de kolay olmalı; amaç yorulmak değil, hareketi provalamak."
         }
@@ -61,6 +63,7 @@ const PROGRAM = {
         "effort": "rir12",
         "rest": 120,
         "warmup": {
+          "plan": [{"pct":50,"reps":"6–8"}],
           "text": "İtişten çekişe geçtiğin için yarı kiloyla 6–8 tekrarlık tek set."
         }
       },
@@ -140,6 +143,7 @@ const PROGRAM = {
         "effort": "rir2",
         "rest": 150,
         "warmup": {
+          "plan": [{"pct":50,"reps":"8–10"},{"pct":75,"reps":"3–5"}],
           "sets": true,
           "text": "Seansın ilk hareketi: 2 ısınma seti. Yarı kiloyla 8–10 tekrar, 1 dakika dinlenme, sonra yaklaşık dörtte üç kiloyla 3–5 tekrar. İkisi de kolay olmalı; amaç yorulmak değil, hareketi provalamak."
         },
@@ -178,6 +182,7 @@ const PROGRAM = {
         "effort": "lastFail",
         "rest": 60,
         "warmup": {
+          "plan": [{"light":true,"reps":"8–10"}],
           "text": "Bacaktan omuza geçtiğin için çok hafif kiloyla 8–10 tekrarlık tek set."
         },
         "restNote": "İki kolu arka arkaya yap, sonra 1 dakika dinlen."
@@ -237,6 +242,7 @@ const PROGRAM = {
         "effort": "rir12",
         "rest": 150,
         "warmup": {
+          "plan": [{"bar":true,"reps":"8–10"},{"pct":75,"reps":"3–5"}],
           "sets": true,
           "emptyBar": true,
           "text": "Seansın ilk hareketi: önce boş barla 8–10 tekrar, sonra çalışma kilonun yaklaşık dörtte üçüyle 3–5 tekrar."
@@ -254,6 +260,7 @@ const PROGRAM = {
         "effort": "rir12",
         "rest": 120,
         "warmup": {
+          "plan": [{"pct":50,"reps":"6–8"}],
           "text": "İtişten çekişe geçtiğin için yarı kiloyla 6–8 tekrarlık tek set."
         },
         "note": "Bu seansta çekişlerin ilki olduğu için Üst A'ya göre biraz daha ağır ya da daha çok tekrar çıkarabilirsin; bu normal. İki seansın kayıtlarını ayrı tut."
@@ -337,6 +344,7 @@ const PROGRAM = {
         "effort": "lastFail",
         "rest": 90,
         "warmup": {
+          "plan": [{"pct":50,"reps":"10"},{"pct":75,"reps":"5"}],
           "sets": true,
           "text": "Seansın ilk hareketi: yarı kiloyla 10 tekrar, sonra dörtte üç kiloyla 5 tekrar."
         }
@@ -375,6 +383,7 @@ const PROGRAM = {
         "effort": "lastFail",
         "rest": 75,
         "warmup": {
+          "plan": [{"light":true,"reps":"8–10"}],
           "text": "Bacaktan omuza geçtiğin için çok hafif kiloyla 8–10 tekrarlık tek set."
         }
       },

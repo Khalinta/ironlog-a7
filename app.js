@@ -102,6 +102,8 @@ function normEntry(e) {
     slot: e.slot,
     ex: typeof e.ex === 'string' ? e.ex : '',
     name: typeof e.name === 'string' ? e.name : (exDef(e.ex) ? exDef(e.ex).name : e.slot),
+    sub: !!e.sub,
+    skipped: !!e.skipped,
     sets: e.sets.map(normSet).filter(Boolean),
   };
 }
@@ -115,6 +117,8 @@ function normSession(s) {
     startedAt: typeof s.startedAt === 'string' ? s.startedAt : new Date().toISOString(),
     finishedAt: typeof s.finishedAt === 'string' ? s.finishedAt : null,
     deload: !!s.deload,
+    short: !!s.short,
+    note: typeof s.note === 'string' ? s.note.slice(0, 2000) : '',
     longBreak: !!s.longBreak,
     entries: Array.isArray(s.entries) ? s.entries.map(normEntry).filter(Boolean) : [],
   };
@@ -226,13 +230,14 @@ function nextTypeAuto() {
 const doneSets = (entry) => (entry ? entry.sets.filter((s) => s.done) : []);
 
 /** Aynı seans türündeki aynı hareket yuvasının son kaydı (ör. Üst A'daki lat pulldown yalnızca önceki Üst A ile). */
-function lastSlotEntry(type, slotKey, excludeId, beforeIso, nonDeload) {
+function lastSlotEntry(type, slotKey, excludeId, beforeIso, nonDeload, sub) {
   for (let i = state.sessions.length - 1; i >= 0; i--) {
     const s = state.sessions[i];
     if (s.type !== type || s.id === excludeId) continue;
     if (nonDeload && s.deload) continue;
     if (beforeIso && s.finishedAt >= beforeIso) continue;
-    const e = s.entries.find((x) => x.slot === slotKey);
+    // Yedek hareketin kaydı asıl hareketin geçmişine karışmaz (ve tersi)
+    const e = s.entries.find((x) => x.slot === slotKey && !!x.sub === !!sub);
     if (e && doneSets(e).length) return { session: s, entry: e };
   }
   return null;
@@ -248,26 +253,32 @@ function daysSinceLast(now = Date.now()) {
 /** Yük azaltmada set sayısı yarıya iner, yukarı yuvarlanır (4→2, 3→2, 2→1). */
 const setCount = (sl, deload) => (deload ? Math.max(1, Math.ceil(sl.sets / 2)) : sl.sets);
 
-function buildSession(type, deload) {
+/** Bir hareket yuvasının setlerini son kayıtla doldurur (sub: yedek hareketin kendi geçmişi). */
+function prefillSets(type, sl, count, sub) {
+  const ex = exDef(sl.ex);
+  const ref = lastSlotEntry(type, sl.key, null, null, true, sub);
+  const refSets = ref ? doneSets(ref.entry) : [];
+  const sets = [];
+  for (let j = 0; j < count; j++) {
+    const rs = refSets[j] || refSets[refSets.length - 1] || null;
+    const lw = ex.load !== 'bodyweight' && rs && rs.w != null ? rs.w : null;
+    const lr = rs && rs.r != null ? rs.r : null;
+    const r = lr != null ? lr : sl.reps[0];
+    sets.push({ w: lw, r, pr: r, lw, lr, done: false });
+  }
+  return sets;
+}
+
+function buildSession(type, deload, short) {
   const def = sessionDef(type);
-  const entries = def.slots.map((sl) => {
+  // Kısa seans: her hareketten 1 set düşer (en az 1 kalır), isteğe bağlı hareket (crunch) gizlenir
+  const entries = def.slots.filter((sl) => !(short && sl.optional)).map((sl) => {
     const ex = exDef(sl.ex);
-    // Referans: aynı seans türünün yük azaltma olmayan son kaydı
-    const ref = lastSlotEntry(type, sl.key, null, null, true);
-    const refSets = ref ? doneSets(ref.entry) : [];
-    const sets = [];
-    for (let j = 0; j < setCount(sl, deload); j++) {
-      // Ağırlık ve tekrar son kayıtla önceden dolu gelir; lw/lr: o setin geçen seferki değeri
-      const rs = refSets[j] || refSets[refSets.length - 1] || null;
-      const lw = ex.load !== 'bodyweight' && rs && rs.w != null ? rs.w : null;
-      const lr = rs && rs.r != null ? rs.r : null;
-      const r = lr != null ? lr : sl.reps[0];
-      sets.push({ w: lw, r, pr: r, lw, lr, done: false });
-    }
-    return { slot: sl.key, ex: sl.ex, name: ex.name, sets };
+    const count = short ? Math.max(1, setCount(sl, deload) - 1) : setCount(sl, deload);
+    return { slot: sl.key, ex: sl.ex, name: ex.name, sub: false, skipped: false, sets: prefillSets(type, sl, count, false) };
   });
   const gap = daysSinceLast();
-  return { id: uid(), type, name: def.name, startedAt: new Date().toISOString(), finishedAt: null, deload: !!deload,
+  return { id: uid(), type, name: def.name, startedAt: new Date().toISOString(), finishedAt: null, deload: !!deload, short: !!short, note: '',
     longBreak: gap != null && gap > PROGRAM.longBreak.days, entries };
 }
 
@@ -278,18 +289,18 @@ const bigStepOn = (exId) => !!(state.exSettings[exId] && state.exSettings[exId].
 const topThreshold = (sl) => sl.reps[1] + (bigStepOn(sl.ex) ? PROGRAM.bigStep.extraReps : 0);
 
 /** Aynı seans türündeki önceki, yük azaltma olmayan kayıt. */
-const progressRef = (sess, slotKey) => lastSlotEntry(sess.type, slotKey, sess.id, sess.finishedAt, true);
+const progressRef = (sess, e) => lastSlotEntry(sess.type, e.slot, sess.id, sess.finishedAt, true, e.sub);
 
 const allAtTop = (entry, thr) => entry.sets.length > 0 && entry.sets.every((x) => x.done && x.r != null && x.r >= thr);
 const maxW = (entry) => Math.max(0, ...doneSets(entry).map((x) => x.w || 0));
 
 /** Son kayıttan önceki, daha düşük ağırlıklı kayıt (önceki ağırlığa dönmek için). */
-function previousWeight(type, slotKey, ref) {
+function previousWeight(type, entry, ref) {
   const top = maxW(ref.entry);
   for (let i = state.sessions.indexOf(ref.session) - 1; i >= 0; i--) {
     const s = state.sessions[i];
     if (s.type !== type || s.deload) continue;
-    const e = s.entries.find((x) => x.slot === slotKey);
+    const e = s.entries.find((x) => x.slot === entry.slot && !!x.sub === !!entry.sub);
     if (!e || !doneSets(e).length) continue;
     const w = maxW(e);
     if (w > 0 && w < top) return w;
@@ -302,7 +313,7 @@ function suggestion(sess, e) {
   const sl = slotDef(sess.type, e.slot);
   const ex = exDef(e.ex);
   if (!sl || !ex || sess.deload) return null;
-  const ref = progressRef(sess, e.slot);
+  const ref = progressRef(sess, e);
   if (!ref) return ex.load === 'bodyweight' ? null : { kind: 'first', text: PROGRAM.firstTime };
   if (ex.load === 'bodyweight') return null;
   const thr = topThreshold(sl);
@@ -311,7 +322,7 @@ function suggestion(sess, e) {
   }
   const first = ref.entry.sets[0];
   if (first && first.done && first.r != null && first.r < sl.reps[0]) {
-    const back = previousWeight(sess.type, e.slot, ref);
+    const back = previousWeight(sess.type, e, ref);
     return { kind: 'back', text: back != null
       ? `Geçen sefer ilk sette alt sınıra (${sl.reps[0]}) ulaşamadın: önceki ağırlığa dön (${fmt(back)} kg).`
       : `Geçen sefer ilk sette alt sınıra (${sl.reps[0]}) ulaşamadın: kiloyu bir kademe azalt.` };
@@ -332,7 +343,7 @@ function setTarget(sess, e, j) {
 
 /** Gerileme: aynı kilolarla, önceki aynı seansa göre toplam tekrar düştü. Kilo artırıldıysa gerileme sayılmaz. */
 function regressed(sess, e) {
-  const ref = progressRef(sess, e.slot);
+  const ref = progressRef(sess, e);
   if (!ref) return false;
   const a = doneSets(e), b = doneSets(ref.entry);
   const n = Math.min(a.length, b.length);
@@ -363,6 +374,7 @@ const ui = {
   editId: null,         // Geçmişten düzenlenen seans
   editBackup: null,
   summary: null,        // Bitirilen seansın özeti
+  shortChoice: false,   // Bir sonraki seans kısa mı
   undo: null,
   open: new Set(),      // Açık kutular
   prevW: null,
@@ -464,6 +476,10 @@ function renderHome() {
         </div>
       </div>
       <div class="seg seg4">${typeBtns}</div>
+      ${state.current ? '' : `<div class="row-between short-row">
+        <div><b>Kısa seans</b><div class="muted small">Her hareketten 1 set az, crunch yok. Süpersetler kalır.</div></div>
+        <button class="switch ${ui.shortChoice ? 'on' : ''}" data-act="short" role="switch" aria-checked="${!!ui.shortChoice}" aria-label="Kısa seans"><span></span></button>
+      </div>`}
       <div class="muted small" style="margin-top:12px">
         ${last ? `Son seans: ${esc(last.name)}, ${fmtDate(last.finishedAt, true)}. ` : 'Yeni programda henüz kayıtlı seans yok. '}
         Otomatik sıra: <b>${esc(sessionDef(auto).name)}</b>${ui.typeChoice && ui.typeChoice !== auto ? ' (elle değiştirdin)' : ''}
@@ -487,7 +503,7 @@ function renderHome() {
     ${renderRules()}
 
     ${state.current ? '' : `<div class="sticky-cta">
-      <button class="btn primary" data-act="start">${esc(def.name)} seansına başla</button>
+      <button class="btn primary" data-act="start">${esc(def.name)}${ui.shortChoice ? ' (kısa)' : ''} seansına başla</button>
     </div>`}`;
 }
 
@@ -528,7 +544,7 @@ function renderWorkout() {
   return `
     <div class="wk-head">
       <div>
-        <div class="eyebrow">${edit ? `Düzenleme · ${fmtDate(sess.finishedAt, true)}` : 'Seans'}${sess.deload ? ' · yük azaltma' : ''}</div>
+        <div class="eyebrow">${edit ? `Düzenleme · ${fmtDate(sess.finishedAt, true)}` : 'Seans'}${sess.deload ? ' · yük azaltma' : ''}${sess.short ? ' · kısa seans' : ''}</div>
         <div class="title">${esc(sess.name)}</div>
       </div>
       <div class="prog"><b id="prog">${done}/${total}</b><span>set</span></div>
@@ -538,6 +554,11 @@ function renderWorkout() {
     ${sess.longBreak && !edit ? `<div class="note warn" style="margin:0 0 12px">${esc(PROGRAM.longBreak.text)}</div>` : ''}
 
     ${sess.entries.map((e, i) => renderExercise(sess, e, i)).join('')}
+
+    <section class="card">
+      <label class="note-label" for="sessNote">Seans notu</label>
+      <textarea id="sessNote" class="text-in" rows="3" maxlength="2000" placeholder="Bugüne özel not (örn. salon kalabalıktı, sırayı değiştirdim)">${esc(sess.note || '')}</textarea>
+    </section>
 
     ${edit ? `
       <button class="btn good" data-act="edit-done" style="margin-top:6px">Düzenlemeyi bitir</button>
@@ -573,36 +594,65 @@ function stepper(i, j, f, value, label) {
     </div>`;
 }
 
+/** Isınma setleri: çalışma kilosunun yüzdesiyle hesaplanır (kaydedilmez). */
+function warmupHtml(sl, e, i) {
+  if (!sl.warmup) return '';
+  const ex = exDef(e.ex);
+  const w = e.sets.length ? e.sets[0].w : null;
+  const step = weightStep(e.ex) || 0.5;
+  const parts = (sl.warmup.plan || []).map((p) => {
+    if (p.bar) return `Boş bar × ${p.reps}`;
+    if (p.light) return `Çok hafif × ${p.reps}`;
+    if (w == null || e.sub) return `%${p.pct} × ${p.reps}`;
+    const kg = Math.max(0, Math.round((w * p.pct) / 100 / step) * step);
+    return `≈${fmt(Math.round(kg * 100) / 100)} kg (%${p.pct}) × ${p.reps}`;
+  });
+  return `<div class="note blue warm" id="warm-${i}"><b>Isınma (kaydedilmez):</b> ${parts.length ? `<span class="warm-sets">${parts.map(esc).join(' → ')}</span>` : ''}<span class="note-sub2">${esc(sl.warmup.text)}</span></div>`;
+}
+
 function renderExercise(sess, e, i) {
   const sl = slotDef(sess.type, e.slot);
   const ex = exDef(e.ex);
   if (!sl || !ex) return '';
   const n = e.sets.length;
   const bodyweight = ex.load === 'bodyweight';
+  const live = !ui.editId;
+  const title = e.sub ? ex.sub : ex.name;
+  const cfg = state.exSettings[e.ex] || {};
 
-  const ref = lastSlotEntry(sess.type, sl.key, sess.id, sess.finishedAt);
+  // İsteğe bağlı hareket bugün atlandıysa küçük kart
+  if (e.skipped) {
+    return `
+    <article class="card ex skipped" id="ex-${i}">
+      <div class="row-between"><div><span class="kind">${esc(ex.muscle)}</span><h3>${esc(title)}</h3><div class="muted small">Bugün atlandı</div></div>
+      <button class="btn ghost mini" data-act="skip" data-ex="${i}">Geri al</button></div>
+    </article>`;
+  }
+
+  const ref = lastSlotEntry(sess.type, sl.key, sess.id, sess.finishedAt, false, e.sub);
   let lastHtml;
   if (ref) {
     const ds = doneSets(ref.entry);
     const vals = bodyweight ? ds.map((s) => `${fmt(s.r)}`).join(' · ') : ds.map((s) => `${fmt(s.w)}×${fmt(s.r)}`).join(' · ');
-    lastHtml = `<div class="last">Son ${esc(sess.name)}: <b>${vals}</b> <span>(${fmtDate(ref.session.finishedAt)}${ref.session.deload ? ', yük azaltma' : ''})</span></div>`;
+    lastHtml = `<div class="last">Son ${esc(sess.name)}${e.sub ? ' (yedek)' : ''}: <b>${vals}</b> <span>(${fmtDate(ref.session.finishedAt)}${ref.session.deload ? ', yük azaltma' : ''})</span></div>`;
   } else {
-    lastHtml = `<div class="last">Bu seansta henüz kaydı yok.</div>`;
+    lastHtml = `<div class="last">${e.sub ? 'Bu yedek hareketin' : 'Bu seansta'} henüz kaydı yok.</div>`;
   }
 
   let notes = '';
-  const sug = ui.editId ? null : suggestion(sess, e);
+  const sug = live ? suggestion(sess, e) : null;
   if (sug) notes += `<div class="note ${sug.kind === 'bump' || sug.kind === 'back' ? 'warn' : 'blue'} sug sug-${sug.kind}">${sug.kind === 'bump' ? '⬆ ' : sug.kind === 'back' ? '↩ ' : ''}${esc(sug.text)}</div>`;
   if (sess.deload) notes += `<div class="note blue">Yük azaltma: kilolar aynı, ${n} set, her set 3 tekrar kala bitir; tükeniş yok.</div>`;
-  if (sl.warmup) notes += `<div class="note blue"><b>Isınma (kaydedilmez):</b> ${esc(sl.warmup.text)}</div>`;
+  if (live) notes += warmupHtml(sl, e, i);
   if (sl.effortNote) notes += `<div class="note blue">${esc(sl.effortNote)}</div>`;
-  if (sl.note) notes += `<div class="note blue">${esc(sl.note)}</div>`;
+  if (sl.note && !e.sub) notes += `<div class="note blue">${esc(sl.note)}</div>`;
 
   const partner = supersetPartner(sess, i);
   let restText = sl.restNote ? esc(sl.restNote) : `${fmtRest(sl.rest)} dinlenme`;
-  if (partner != null && sl.ssPos === 1) restText = `ardından dinlenmeden ${esc(exDef(sess.entries[partner].ex).name)}`;
+  if (partner != null && sl.ssPos === 1) restText = `ardından dinlenmeden ${esc(sess.entries[partner].sub ? exDef(sess.entries[partner].ex).sub : exDef(sess.entries[partner].ex).name)}`;
   if (partner != null && sl.ssPos === 2) restText = `tur bitince ${fmtRest(sl.rest)} dinlenme`;
   const tags = [
+    e.sub ? '<span class="tag">Yedek</span>' : '',
     partner != null ? `<span class="tag ss-tag">Süperset ${sl.ssPos}/2</span>` : '',
     sl.optional ? '<span class="tag">İsteğe bağlı</span>' : '',
     ex.perSide ? '<span class="tag">Her kol</span>' : '',
@@ -610,6 +660,7 @@ function renderExercise(sess, e, i) {
 
   const sets = e.sets.map((s, j) => {
     const eff = effortFor(sl, j, n, sess.deload);
+    const tgt = setTarget(sess, e, j);
     return `
     <div class="set2 ${s.done ? 'done' : ''}" id="set-${i}-${j}">
       <div class="set2-top">
@@ -618,7 +669,7 @@ function renderExercise(sess, e, i) {
         <span class="grow"></span>
         <button class="chk" data-act="check" data-ex="${i}" data-set="${j}" aria-label="Set ${j + 1} ${s.done ? 'tiki kaldır' : 'tamam'}">${CHECK_SVG}</button>
       </div>
-      ${setTarget(sess, e, j) ? `<div class="tgt" id="tgt-${i}-${j}">${esc(setTarget(sess, e, j))}</div>` : ''}
+      ${tgt ? `<div class="tgt" id="tgt-${i}-${j}">${esc(tgt)}</div>` : ''}
       <div class="set2-row ${bodyweight ? 'bw' : ''}">
         ${bodyweight ? '' : stepper(i, j, 'w', s.w, `Set ${j + 1} ağırlık`)}
         ${stepper(i, j, 'r', s.r, `Set ${j + 1} tekrar`)}
@@ -626,21 +677,40 @@ function renderExercise(sess, e, i) {
     </div>`;
   }).join('');
 
-  const formKey = `form-${i}`, subKey = `sub-${i}`, setKey = `set-${i}`;
+  const formKey = `form-${i}`, subKey = `sub-${i}`, cfgKey = `cfg-${i}`;
   const toggles = [
-    `<button data-act="toggle" data-key="${formKey}" class="${ui.open.has(formKey) ? 'on' : ''}">Form</button>`,
-    ex.sub ? `<button data-act="toggle" data-key="${subKey}" class="${ui.open.has(subKey) ? 'on' : ''}">Alet doluysa</button>` : '',
-    bodyweight ? '' : `<button data-act="toggle" data-key="${setKey}" class="${ui.open.has(setKey) ? 'on' : ''}">Ayar</button>`,
+    e.sub ? '' : `<button data-act="toggle" data-key="${formKey}" class="${ui.open.has(formKey) ? 'on' : ''}">Form</button>`,
+    (ex.sub || e.sub) && live ? `<button data-act="toggle" data-key="${subKey}" class="${ui.open.has(subKey) ? 'on' : ''}">Alet doluysa</button>` : '',
+    `<button data-act="toggle" data-key="${cfgKey}" class="${ui.open.has(cfgKey) ? 'on' : ''}">Ayar</button>`,
   ].filter(Boolean);
   const big = bigStepOn(e.ex);
   const allDone = n && e.sets.every((s) => s.done);
+
+  const subBox = `<div class="infobox"><strong>Alet doluysa</strong>
+      <p>Önce sırayı değiştir: bir sonraki hareketi yapıp geri dön. Alet uzun süre boşalmayacaksa o günlük yedeği kullan; set, tekrar ve zorluk aynı kalır.</p>
+      ${ex.sub ? `<p><b>Yedek:</b> ${esc(ex.sub)}</p>` : ''}
+      <div class="btn-grid">
+        <button class="btn mini" data-act="move" data-mode="next" data-ex="${i}">Sonrakiyle yer değiştir</button>
+        <button class="btn mini" data-act="move" data-mode="end" data-ex="${i}">Sona al</button>
+        ${ex.noSub ? '' : `<button class="btn mini ${e.sub ? '' : 'red'}" data-act="sub" data-ex="${i}">${e.sub ? 'Asıl harekete dön' : 'Bugün yedeğini yap'}</button>`}
+      </div>
+      <p class="muted small" style="margin-top:8px">Sıra değişikliği sadece bugün için; program sırası değişmez. Yedeğin kaydı asıl hareketin geçmişine karışmaz.</p>
+    </div>`;
+  const cfgBox = `<div class="infobox"><strong>Hareket ayarı (kalıcı)</strong>
+      <label class="note-label" for="exnote-${i}">Makine ayarı notu</label>
+      <input class="text-in" id="exnote-${i}" data-exnote="${e.ex}" type="text" maxlength="300" placeholder="örn. koltuk 4, pim 3. delik" value="${esc(cfg.note || '')}">
+      ${bodyweight ? '' : `<div class="row-between" style="margin-top:12px"><span>Büyük ağırlık adımı</span><button class="switch ${big ? 'on' : ''}" data-act="bigstep" data-ex-id="${e.ex}" role="switch" aria-checked="${big}" aria-label="Büyük ağırlık adımı"><span></span></button></div>
+      <p class="muted small" style="margin-top:8px">Açıkken artırma önerisi, bütün setlerde üst sınırın 2 tekrar üstüne (${sl.reps[1] + PROGRAM.bigStep.extraReps}) çıkınca verilir. ${esc(PROGRAM.bigStep.text)}</p>`}
+    </div>`;
+
   return `
     <article class="card ex ${allDone ? 'all-done' : ''} ${partner != null ? 'in-ss ss' + sl.ssPos : ''}" id="ex-${i}">
       <div class="ex-head">
         <span class="ex-num">${String(i + 1).padStart(2, '0')}</span>
         <div class="grow">
           <div class="ex-tags"><span class="kind">${esc(ex.muscle)}</span>${tags}</div>
-          <h3>${esc(ex.name)}</h3>
+          <h3>${esc(title)}</h3>
+          ${cfg.note ? `<div class="machine-note">⚙ ${esc(cfg.note)}</div>` : ''}
         </div>
       </div>
       <div class="ex-meta">${n} set × ${rangeText(sl.reps)} tekrar${ex.perSide ? ' (her kol)' : ''} · ${restText}</div>
@@ -650,12 +720,11 @@ function renderExercise(sess, e, i) {
         <div class="set2-head ${bodyweight ? 'bw' : ''}">${bodyweight ? '' : `<span>kg <small>(±${fmt(weightStep(e.ex))})</small></span>`}<span>${ex.perSide ? 'tekrar / kol' : 'tekrar'}</span></div>
         ${sets}
       </div>
+      ${sl.optional && live ? `<button class="btn ghost mini" data-act="skip" data-ex="${i}" style="margin-top:10px">Bugün atla</button>` : ''}
       <div class="toggles" style="grid-template-columns:repeat(${toggles.length},1fr)">${toggles.join('')}</div>
-      ${ui.open.has(formKey) ? `<div class="infobox"><strong>Form</strong>${renderForm(ex)}</div>` : ''}
-      ${ui.open.has(setKey) ? `<div class="infobox"><strong>Hareket ayarı</strong>
-        <div class="row-between"><span>Büyük ağırlık adımı</span><button class="switch ${big ? 'on' : ''}" data-act="bigstep" data-ex-id="${e.ex}" role="switch" aria-checked="${big}" aria-label="Büyük ağırlık adımı"><span></span></button></div>
-        <p class="muted small" style="margin-top:8px">Açıkken artırma önerisi, bütün setlerde üst sınırın 2 tekrar üstüne (${sl.reps[1] + PROGRAM.bigStep.extraReps}) çıkınca verilir. ${esc(PROGRAM.bigStep.text)}</p></div>` : ''}
-      ${ui.open.has(subKey) ? `<div class="infobox"><strong>Alet doluysa</strong><p>Önce sırayı değiştir: bir sonraki hareketi yapıp geri dön. Alet uzun süre boşalmayacaksa o günlük yedeği kullan; set, tekrar ve zorluk aynı kalır.</p><p><b>Yedek:</b> ${esc(ex.sub)}</p></div>` : ''}
+      ${ui.open.has(formKey) && !e.sub ? `<div class="infobox"><strong>Form</strong>${renderForm(ex)}</div>` : ''}
+      ${ui.open.has(subKey) ? subBox : ''}
+      ${ui.open.has(cfgKey) ? cfgBox : ''}
     </article>`;
 }
 
@@ -684,7 +753,7 @@ function sessionSummary(sess) {
   sess.entries.forEach((e) => {
     const bw = exDef(e.ex) && exDef(e.ex).load === 'bodyweight';
     const now = perf(e, bw);
-    const ref = sess.deload ? null : progressRef(sess, e.slot);
+    const ref = sess.deload ? null : progressRef(sess, e);
     const before = ref && perf(ref.entry, bw);
     if (now && before && (now.w > before.w || (now.w === before.w && now.r > before.r))) {
       improved.push(bw ? `${e.name}: ${before.r} → ${now.r} tekrar` : (now.w > before.w ? `${e.name}: ${fmt(before.w)} → ${fmt(now.w)} kg` : `${e.name}: ${fmt(now.w)} kg'da ${before.r} → ${now.r} tekrar`));
@@ -730,15 +799,17 @@ function renderHistory() {
       const ds = doneSets(e);
       const bw = exDef(e.ex) && exDef(e.ex).load === 'bodyweight';
       const v = ds.length ? ds.map((x) => (bw ? `${fmt(x.r)}` : `${fmt(x.w)}×${fmt(x.r)}`)).join(' · ') : 'yapılmadı';
-      return `<div class="hist-ex"><span>${esc(e.name)}</span><span class="v">${v}</span></div>`;
+      const label = e.skipped ? 'atlandı' : v;
+      return `<div class="hist-ex"><span>${e.sub ? '<span class="tag">Yedek</span> ' : ''}${esc(e.name)}</span><span class="v">${label}</span></div>`;
     }).join('');
     return `
       <section class="card">
         <div class="row-between">
-          <div class="hist-day">${esc(s.name)}</div>
+          <div class="hist-day">${esc(s.name)}${s.deload ? ' <span class="tag">Yük azaltma</span>' : ''}${s.short ? ' <span class="tag">Kısa</span>' : ''}</div>
           <div class="muted small">${fmtDate(s.finishedAt, true)}</div>
         </div>
         ${rows}
+        ${s.note ? `<div class="hist-note">📝 ${esc(s.note)}</div>` : ''}
         <div class="hist-actions">
           <button class="btn hist-del" data-act="edit-session" data-id="${esc(s.id)}">Düzenle</button>
           <button class="btn danger hist-del" data-act="del-session" data-id="${esc(s.id)}">Sil</button>
@@ -1026,6 +1097,8 @@ function setRowRefresh(i, j) {
   row.classList.toggle('done', s.done);
   const card = document.getElementById(`ex-${i}`);
   if (card) card.classList.toggle('all-done', sess.entries[i].sets.every((x) => x.done));
+  const wu = document.getElementById(`warm-${i}`);
+  if (wu && j === 0) { const sl0 = slotDef(sess.type, sess.entries[i].slot); wu.outerHTML = warmupHtml(sl0, sess.entries[i], i); }
   const tg = document.getElementById(`tgt-${i}-${j}`);
   if (tg) tg.textContent = setTarget(sess, sess.entries[i], j);
   ['w', 'r'].forEach((f) => {
@@ -1119,6 +1192,59 @@ function finishWorkout() {
   save();
   render();
   window.scrollTo(0, 0);
+}
+
+/** Süperset çiftleri birlikte hareket eder: sıradaki hareket "bloklarını" bulur. */
+function entryBlocks(sess) {
+  const blocks = [];
+  sess.entries.forEach((e, i) => {
+    const ss = (slotDef(sess.type, e.slot) || {}).ss;
+    const last = blocks[blocks.length - 1];
+    if (ss && last && last.ss === ss) last.idx.push(i);
+    else blocks.push({ ss: ss || null, idx: [i] });
+  });
+  return blocks;
+}
+
+/** O günlük sıra değişikliği: 'next' = sonrakiyle yer değiştir, 'end' = sona al. Program sırası değişmez. */
+function moveEntry(i, mode) {
+  const sess = activeSess();
+  const blocks = entryBlocks(sess);
+  const b = blocks.findIndex((x) => x.idx.includes(i));
+  if (b < 0) return;
+  if (b === blocks.length - 1) { toast('Zaten en sonda'); return; }
+  if (mode === 'next') [blocks[b], blocks[b + 1]] = [blocks[b + 1], blocks[b]];
+  else blocks.push(blocks.splice(b, 1)[0]);
+  const old = sess.entries;
+  sess.entries = blocks.flatMap((x) => x.idx.map((k) => old[k]));
+  ui.open.clear();
+  save(); render();
+  toast('Sıra bugün için değişti');
+}
+
+/** Bugün yedeğini yap / asıl harekete dön. Yedeğin kaydı ayrı tutulur. */
+function toggleSub(i) {
+  const sess = activeSess();
+  const e = sess.entries[i];
+  const ex = exDef(e.ex);
+  if (ex.noSub) return;
+  if (e.sets.some((s) => s.done) && !confirm('Bu harekette girilen setler silinecek. Devam edilsin mi?')) return;
+  e.sub = !e.sub;
+  e.name = e.sub ? ex.sub : ex.name;
+  e.sets = prefillSets(sess.type, slotDef(sess.type, e.slot), e.sets.length, e.sub);
+  ui.open.delete(`sub-${i}`);
+  save(); render();
+  toast(e.sub ? `Bugün yedek: ${ex.sub}` : `Asıl harekete dönüldü: ${ex.name}`);
+}
+
+/** İsteğe bağlı hareketi bugün atla / geri al. Atlanınca seans eksik sayılmaz. */
+function toggleSkip(i) {
+  const sess = activeSess();
+  const e = sess.entries[i];
+  if (!e.skipped && e.sets.some((s) => s.done) && !confirm('Bu harekette girilen setler silinecek. Atlansın mı?')) return;
+  e.skipped = !e.skipped;
+  if (e.skipped) e.sets.forEach((s) => { s.done = false; });
+  save(); render();
 }
 
 function startEdit(id) {
@@ -1225,7 +1351,8 @@ document.addEventListener('click', (ev) => {
     case 'start': {
       if (state.current) break;
       const type = ui.typeChoice || nextTypeAuto();
-      state.current = buildSession(type, state.deloadMode);
+      state.current = buildSession(type, state.deloadMode, ui.shortChoice);
+      ui.shortChoice = false;
       ui.inWorkout = true;
       ui.summary = null;
       ui.open.clear();
@@ -1254,6 +1381,14 @@ document.addEventListener('click', (ev) => {
       save(); render();
       break;
     }
+    case 'short':
+      ui.shortChoice = !ui.shortChoice; render(); break;
+    case 'move':
+      moveEntry(Number(el.dataset.ex), el.dataset.mode); break;
+    case 'sub':
+      toggleSub(Number(el.dataset.ex)); break;
+    case 'skip':
+      toggleSkip(Number(el.dataset.ex)); break;
     case 'dismiss-regression':
       state.regressionDismissed = el.dataset.id; save(); render(); break;
     case 'resume':
@@ -1321,6 +1456,7 @@ document.addEventListener('focusin', (ev) => {
 
 document.addEventListener('input', (ev) => {
   const inp = ev.target;
+  if (inp.id === 'sessNote' && activeSess()) { activeSess().note = inp.value.slice(0, 2000); save(); return; }
   if (!inp.matches('input[data-f]') || !activeSess()) return;
   const s = activeSess().entries[inp.dataset.ex].sets[inp.dataset.set];
   if (inp.dataset.f === 'w') s.w = parseNum(inp.value);
@@ -1330,6 +1466,13 @@ document.addEventListener('input', (ev) => {
 
 document.addEventListener('change', (ev) => {
   const inp = ev.target;
+  if (inp.dataset && inp.dataset.exnote) {
+    const id = inp.dataset.exnote;
+    state.exSettings[id] = Object.assign({ bigStep: false, note: '' }, state.exSettings[id]);
+    state.exSettings[id].note = inp.value.trim().slice(0, 300);
+    save(); render(); toast('Makine ayarı notu kaydedildi');
+    return;
+  }
   if (inp.id === 'importFile') {
     if (inp.files && inp.files[0]) importData(inp.files[0]);
     inp.value = '';
