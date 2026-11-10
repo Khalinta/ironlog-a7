@@ -22,6 +22,8 @@ ekranlar bu dosyadan üretilir. Form ipuçları, yedek hareketler, haftalık set
 - Yarım seans kaybolmaz ("Seansa devam et"); geçmiş seanslar düzeltilebilir.
 - Takip: haftalık özet (seans sayısı, kas grubu başına set / hedef), hareket ilerlemesi, kilo ve haftalık ortalama, bel ölçüsü.
 - Veriyi dışa / içe aktarma (JSON), 14 günde bir yedek hatırlatması. Eski programın kayıtları "Arşiv" olarak saklanır.
+- Seans ekranında iki görünüm: "Odak" (sadece sıradaki set, büyük "Seti tamamla" düğmesi, otomatik ilerleme) ve "Tüm seans" (bütün hareketlerin listesi).
+- Hareket başına ağırlık adımı: "Ayar" kutusundan o makinede artı/eksinin kaç kg değiştireceği ayarlanır.
 
 ## Dosyalar
 - `index.html`, `styles.css`, `app.js` – uygulama
