@@ -391,3 +391,19 @@ h3.sub { font-size: 12px; color: var(--muted); margin: 18px 0 4px; text-transfor
 .ex.skipped .kind { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .ex.skipped .btn.mini { width: auto; }
 .hist-note { margin-top: 8px; font-size: 14px; color: #cfcfd6; }
+
+/* ---- Aşama 6: takip ---- */
+.stat-row.three { grid-template-columns: repeat(3, 1fr); }
+.wk-nav { display: flex; gap: 4px; }
+.wk-nav .x { font-size: 24px; color: var(--text); background: var(--card2); }
+.wk-nav .x:disabled { opacity: .3; }
+.wk-row { display: grid; grid-template-columns: 110px 1fr 52px; gap: 10px; align-items: center; padding: 7px 0; font-size: 15px; }
+.wk-m { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-bar { height: 8px; border-radius: 99px; background: var(--card2); overflow: hidden; }
+.wk-bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--red-lo), var(--red-hi)); border-radius: 99px; }
+.wk-v { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 700; }
+.wk-v.full { color: var(--text); }
+select.text-in { -webkit-appearance: none; appearance: none; font-weight: 700; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%; background-size: 6px 6px; background-repeat: no-repeat; padding-right: 36px; }
+.backup-hint { display: block; width: 100%; text-align: left; margin-bottom: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line2); background: var(--card2); color: #d6d6dc; font-size: 14px; }
+.backup-hint b { color: var(--red-hi); }
+@media (max-width: 360px) { .wk-row { grid-template-columns: 92px 1fr 48px; font-size: 14px; } }

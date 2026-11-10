@@ -376,6 +376,8 @@ const ui = {
   summary: null,        // Bitirilen seansın özeti
   shortChoice: false,   // Bir sonraki seans kısa mı
   undo: null,
+  weekOffset: 0,        // Haftalık özet: kaç hafta geri
+  progEx: null,         // İlerleme görünümünde seçili hareket
   open: new Set(),      // Açık kutular
   prevW: null,
 };
@@ -463,6 +465,7 @@ function renderHome() {
       <div class="brand-sub">${esc(PROGRAM.name)}</div>
     </header>
     ${renderMigrationBanner()}
+    ${backupDue() ? `<button class="backup-hint" data-act="go-backup">💾 Son yedeğin üzerinden 14 günden fazla geçti. <b>Yedek al</b></button>` : ''}
     ${renderSummary()}
     ${state.current ? renderResume() : ''}
 
@@ -845,6 +848,7 @@ function renderSettings() {
       <p class="muted small">Kayıtlar yalnızca bu telefonda saklanır. Telefon değiştirirken veya ara sıra güvence için yedek al.</p>
       <button class="btn" data-act="export">Veriyi dışa aktar (JSON)</button>
       <button class="btn" data-act="import">Veriyi içe aktar</button>
+      <p class="muted small">${state.lastBackupAt ? `Son yedek: ${fmtDate(state.lastBackupAt, true)}.` : 'Henüz bu cihazdan yedek alınmadı.'}</p>
       <p class="muted small" style="margin-bottom:0">${state.sessions.length} seans${state.current ? ' + 1 devam eden' : ''} · ${state.archive.length} arşiv · ${state.body.length} kilo · ${state.waist.length} bel kaydı.</p>
     </section>
     ${hasPreBackup() ? `
@@ -917,9 +921,11 @@ function renderTrack() {
 
   return `
     <h1 class="page-title">Takip</h1>
+    ${renderWeekSummary()}
+    ${renderProgress()}
     <section class="card">
       <h2>Kilo</h2>
-      <p class="muted small" style="margin:4px 0 10px">Hedef: haftada 2-3 kez tartıl, haftalık ortalamaya bak. Bu hafta ${nThisWeek} kayıt.</p>
+      <p class="muted small" style="margin:4px 0 10px">Haftada birkaç kez sabah aç karnına tartıl ve haftalık ortalamaya bak. Bu hafta ${nThisWeek} kayıt.</p>
       <div class="measure-form">
         <input id="bodyDate" type="date" value="${today}" max="${today}" aria-label="Tarih">
         <label class="fld"><input id="bodyVal" type="text" inputmode="decimal" placeholder="kg" autocomplete="off" aria-label="Kilo (kg)"></label>
@@ -939,6 +945,111 @@ function renderTrack() {
       ${state.waist.length ? `<h3 class="sub">Kayıtlar</h3>${entryRows(state.waist, 'cm', 'cm')}` : ''}
     </section>
 `;
+}
+
+/* ---------------- Takip: haftalık özet ve hareket ilerlemesi ---------------- */
+
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const localDate = (iso) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
+/** Pazartesi–pazar haftası: yapılan seans sayısı ve kas grubu başına tamamlanan set (ısınma hariç). */
+function weekStats(startStr) {
+  const endStr = addDays(startStr, 7);
+  const sessions = state.sessions.filter((s) => { const d = localDate(s.finishedAt); return d >= startStr && d < endStr; });
+  const sets = {};
+  Object.keys(PROGRAM.weeklyTargets).forEach((k) => { sets[k] = 0; });
+  sessions.forEach((s) => s.entries.forEach((e) => {
+    if (e.skipped) return;
+    const ex = exDef(e.ex);
+    if (!ex) return;
+    sets[ex.muscle] = (sets[ex.muscle] || 0) + doneSets(e).length;
+  }));
+  return { sessions, sets };
+}
+
+function renderWeekSummary() {
+  const off = ui.weekOffset || 0;
+  const start = addDays(weekStart(todayStr()), -7 * off);
+  const end = addDays(start, 6);
+  const st = weekStats(start);
+  const perWeek = PROGRAM.rotation.length;
+  const rows = Object.entries(PROGRAM.weeklyTargets).map(([m, target]) => {
+    const v = st.sets[m] || 0;
+    const pct = Math.min(100, Math.round((v / target) * 100));
+    return `<div class="wk-row"><span class="wk-m">${esc(m)}</span><span class="wk-bar"><span style="width:${pct}%"></span></span><span class="wk-v ${v >= target ? 'full' : ''}">${v}/${target}</span></div>`;
+  }).join('');
+  return `
+    <section class="card">
+      <div class="row-between">
+        <h2>Haftalık özet</h2>
+        <div class="wk-nav">
+          <button class="x" data-act="week-nav" data-d="1" aria-label="Önceki hafta">‹</button>
+          <button class="x" data-act="week-nav" data-d="-1" aria-label="Sonraki hafta" ${off === 0 ? 'disabled' : ''}>›</button>
+        </div>
+      </div>
+      <p class="muted small" style="margin:2px 0 10px">${fmtDate(start)} – ${fmtDate(end)}${off === 0 ? ' (bu hafta)' : ''}</p>
+      <div class="stat-row three">
+        <div class="stat accent"><b>${st.sessions.length}/${perWeek}</b><span>Seans</span></div>
+        <div class="stat"><b>${Object.values(st.sets).reduce((a, b) => a + b, 0)}</b><span>Set</span></div>
+        <div class="stat"><b>${Object.values(PROGRAM.weeklyTargets).reduce((a, b) => a + b, 0)}</b><span>Hedef set</span></div>
+      </div>
+      <h3 class="sub">Kas grubu başına set (yapılan / hedef)</h3>
+      ${rows}
+    </section>`;
+}
+
+/** Hareket listesi: programdaki her hareket, hangi seans türlerinde geçtiği. */
+function progressOptions() {
+  const out = [];
+  Object.keys(PROGRAM.exercises).forEach((id) => {
+    const slots = [];
+    PROGRAM.rotation.forEach((t) => sessionDef(t).slots.forEach((sl) => { if (sl.ex === id) slots.push({ type: t, key: sl.key, reps: sl.reps }); }));
+    if (slots.length) out.push({ id, slots });
+  });
+  return out;
+}
+
+/** Bir kaydın en iyi seti: en yüksek kilo, eşitse en çok tekrar. */
+function bestSet(entry) {
+  const ds = doneSets(entry);
+  if (!ds.length) return null;
+  return ds.reduce((a, b) => ((b.w || 0) > (a.w || 0) || ((b.w || 0) === (a.w || 0) && (b.r || 0) > (a.r || 0)) ? b : a));
+}
+
+function renderProgress() {
+  const opts = progressOptions();
+  const sel = opts.find((o) => o.id === ui.progEx) || opts[0];
+  const ex = exDef(sel.id);
+  const bw = ex.load === 'bodyweight';
+  const lists = sel.slots.map((sl) => {
+    const rows = state.sessions
+      .filter((s) => s.type === sl.type && !s.deload)
+      .map((s) => ({ s, e: s.entries.find((x) => x.slot === sl.key && !x.sub && !x.skipped) }))
+      .filter((x) => x.e && bestSet(x.e))
+      .map((x) => { const b = bestSet(x.e); return `<div class="hist-ex"><span>${fmtDate(x.s.finishedAt, true)}</span><span class="v"><b>${bw ? `${b.r} tekrar` : `${fmt(b.w)} kg × ${b.r}`}</b></span></div>`; });
+    return `<h3 class="sub">${esc(sessionDef(sl.type).name)} · ${rangeText(sl.reps)}</h3>${rows.length ? rows.join('') : '<p class="muted small" style="margin:4px 0 0">Henüz kayıt yok.</p>'}`;
+  }).join('');
+  return `
+    <section class="card">
+      <h2>Hareket ilerlemesi</h2>
+      <p class="muted small" style="margin:4px 0 10px">Her seansın en iyi seti (kilo × tekrar), eskiden yeniye. Seans türleri ayrı; yük azaltma ve yedek hareket kayıtları hariç.</p>
+      <select id="progEx" class="text-in" aria-label="Hareket seç">
+        ${opts.map((o) => `<option value="${o.id}" ${o.id === sel.id ? 'selected' : ''}>${esc(exDef(o.id).name)}</option>`).join('')}
+      </select>
+      ${lists}
+    </section>`;
+}
+
+/** Son yedeğin üzerinden 14 günden fazla geçtiyse hatırlatma (hiç yedek yoksa ilk kayıttan itibaren sayılır). */
+function backupDue() {
+  const first = state.sessions[0];
+  const ref = state.lastBackupAt || (first && first.finishedAt);
+  if (!ref) return false;
+  return (Date.now() - new Date(ref).getTime()) / DAY_MS > 14;
 }
 
 function addMeasure(kind) {
@@ -1381,6 +1492,10 @@ document.addEventListener('click', (ev) => {
       save(); render();
       break;
     }
+    case 'week-nav':
+      ui.weekOffset = Math.max(0, (ui.weekOffset || 0) + Number(el.dataset.d)); render(); break;
+    case 'go-backup':
+      ui.tab = 'settings'; render(); window.scrollTo(0, 0); break;
     case 'short':
       ui.shortChoice = !ui.shortChoice; render(); break;
     case 'move':
@@ -1473,6 +1588,7 @@ document.addEventListener('change', (ev) => {
     save(); render(); toast('Makine ayarı notu kaydedildi');
     return;
   }
+  if (inp.id === 'progEx') { ui.progEx = inp.value; render(); return; }
   if (inp.id === 'importFile') {
     if (inp.files && inp.files[0]) importData(inp.files[0]);
     inp.value = '';
