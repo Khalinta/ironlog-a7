@@ -972,6 +972,33 @@ const PROGRAM = {
   }
 },
 
+  /* Yük azaltma (deload): kilolar aynı, set sayısı yarıya (yukarı yuvarlanır: 4→2, 3→2, 2→1), her set 3 tekrar kala. */
+  deload: {
+    when: [
+      "Deload takvime göre değil, ihtiyaca göre yapılır. Kalori açığında bu ihtiyaç muhtemelen 6–10 haftada bir ortaya çıkar.",
+      "Ne zaman: Aşağıdakilerden ikisi aynı anda görülürse.",
+      "İki seans üst üste, birkaç harekette birden tekrar sayıların düşüyor.",
+      "Eklemlerinde (omuz, dirsek, diz) geçmeyen bir sızı var.",
+      "Uykun bozuldu ya da sürekli yorgun hissediyorsun.",
+      "Salona gitme isteğin belirgin azaldı."
+    ],
+    how: [
+      "Hareketler ve kilolar aynı kalır.",
+      "Her hareketin set sayısı yarıya iner (4 set 2 olur, 3 set 2 olur, 2 set 1 olur).",
+      "Hiçbir sette tükenişe gidilmez; her set RIR 3 civarında biter.",
+      "Sonraki hafta normal programa, bıraktığın kilolarla dönersin."
+    ],
+  },
+
+  /* Uzun ara: son seanstan bu kadar gün sonra not gösterilir */
+  longBreak: { days: 14, text: "2–3 hafta ara verdin: İlk hafta kiloları yaklaşık yüzde 10 düşür, tükenişe gitme. İkinci hafta eski kilolarına dön." },
+
+  /* Hiç kaydı olmayan hareket için not */
+  firstTime: "İlk hafta: hafif başla, 1–2 tekrar kalana kadar kiloyu artır.",
+
+  /* "Büyük ağırlık adımı" açık hareketlerde artırma önerisi, üst sınırın bu kadar tekrar üstünde verilir */
+  bigStep: { extraReps: 2, text: "Kilo adımı çok büyükse: Lateral raise ya da curl gibi hafif hareketlerde bir sonraki dumbbell ya da plaka yüzde 20–30 artış demek olabilir. O zaman üst sınırı 2–3 tekrar geçene kadar aynı kiloda kal (örneğin 10–15 yerine 17–18'e kadar çık), sonra artır. Bazı salonlarda makine plakalarının arasına takılan 1–2,5 kg'lık ek ağırlıklar olur; varsa onları kullan." },
+
   /* Haftalık set bütçesi (doğrudan setler, hafta toplamı) */
   weeklyTargets: {
   "Yan omuz": 12,

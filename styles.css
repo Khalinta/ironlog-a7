@@ -370,3 +370,6 @@ h3.sub { font-size: 12px; color: var(--muted); margin: 18px 0 4px; text-transfor
   .stepper input { font-size: 20px; }
   .set2-top .chk { width: 64px; }
 }
+.set2 .tgt { font-size: 13px; color: var(--muted); margin: -2px 2px 8px; font-variant-numeric: tabular-nums; }
+.calm { border-color: var(--line2); background: var(--card2); }
+.linkbtn { border: 0; background: none; color: var(--red-hi); font-weight: 700; font-size: 14px; padding: 10px 0 0; }

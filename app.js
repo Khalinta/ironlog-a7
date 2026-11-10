@@ -61,8 +61,9 @@ const exDef = (id) => PROGRAM.exercises[id];
 const slotDef = (type, key) => (sessionDef(type) ? sessionDef(type).slots.find((s) => s.key === key) : null);
 
 /** Bir setin zorluk hedefi ("1–2 kala", "2 kala", "tükeniş"). */
-function effortFor(slot, j, n) {
+function effortFor(slot, j, n, deload) {
   const L = PROGRAM.effortLabels;
+  if (deload) return L.deload;
   if (slot.effort === 'rir2') return L.rir2;
   if (slot.effort === 'lastFail') return j === n - 1 ? L.fail : L.rir12;
   return L.rir12;
@@ -73,12 +74,13 @@ const CHECK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l
 /* ---------------- Durum (localStorage) ---------------- */
 
 function defaultState() {
-  return { version: DATA_VERSION, sessions: [], archive: [], current: null, timer: null, body: [], waist: [], migration: null };
+  return { version: DATA_VERSION, sessions: [], archive: [], current: null, timer: null, body: [], waist: [], migration: null,
+    deloadMode: false, deloadSince: null, exSettings: {}, regressionDismissed: null };
 }
 
 function normSet(s) {
   if (!s || typeof s !== 'object') return null;
-  return { w: parseNum(s.w), r: parseNum(s.r, true), pr: parseNum(s.pr, true), done: !!s.done };
+  return { w: parseNum(s.w), r: parseNum(s.r, true), pr: parseNum(s.pr, true), lw: parseNum(s.lw), lr: parseNum(s.lr, true), done: !!s.done };
 }
 
 function normMeasures(list, key, max) {
@@ -112,6 +114,8 @@ function normSession(s) {
     name: typeof s.name === 'string' ? s.name : (sessionDef(s.type) ? sessionDef(s.type).name : s.type),
     startedAt: typeof s.startedAt === 'string' ? s.startedAt : new Date().toISOString(),
     finishedAt: typeof s.finishedAt === 'string' ? s.finishedAt : null,
+    deload: !!s.deload,
+    longBreak: !!s.longBreak,
     entries: Array.isArray(s.entries) ? s.entries.map(normEntry).filter(Boolean) : [],
   };
 }
@@ -154,6 +158,16 @@ function migrate(raw) {
       st.timer = { end: raw.timer.end, total: Number(raw.timer.total) || 60, label: String(raw.timer.label || '') };
     }
     st.migration = raw.migration && typeof raw.migration === 'object' ? raw.migration : null;
+    st.deloadMode = !!raw.deloadMode;
+    st.deloadSince = st.deloadMode && typeof raw.deloadSince === 'string' ? raw.deloadSince : null;
+    st.regressionDismissed = typeof raw.regressionDismissed === 'string' ? raw.regressionDismissed : null;
+    if (raw.exSettings && typeof raw.exSettings === 'object') {
+      Object.keys(raw.exSettings).forEach((k) => {
+        const v = raw.exSettings[k];
+        if (!exDef(k) || !v || typeof v !== 'object') return;
+        st.exSettings[k] = { bigStep: !!v.bigStep, note: typeof v.note === 'string' ? v.note.slice(0, 300) : '' };
+      });
+    }
     return st;
   }
 
@@ -212,10 +226,11 @@ function nextTypeAuto() {
 const doneSets = (entry) => (entry ? entry.sets.filter((s) => s.done) : []);
 
 /** Aynı seans türündeki aynı hareket yuvasının son kaydı (ör. Üst A'daki lat pulldown yalnızca önceki Üst A ile). */
-function lastSlotEntry(type, slotKey, excludeId, beforeIso) {
+function lastSlotEntry(type, slotKey, excludeId, beforeIso, nonDeload) {
   for (let i = state.sessions.length - 1; i >= 0; i--) {
     const s = state.sessions[i];
     if (s.type !== type || s.id === excludeId) continue;
+    if (nonDeload && s.deload) continue;
     if (beforeIso && s.finishedAt >= beforeIso) continue;
     const e = s.entries.find((x) => x.slot === slotKey);
     if (e && doneSets(e).length) return { session: s, entry: e };
@@ -223,25 +238,120 @@ function lastSlotEntry(type, slotKey, excludeId, beforeIso) {
   return null;
 }
 
+function daysSinceLast(now = Date.now()) {
+  const last = state.sessions[state.sessions.length - 1];
+  return last ? (now - new Date(last.finishedAt).getTime()) / DAY_MS : null;
+}
+
 /* ---------------- Seans başlatma ---------------- */
 
-function buildSession(type) {
+/** Yük azaltmada set sayısı yarıya iner, yukarı yuvarlanır (4→2, 3→2, 2→1). */
+const setCount = (sl, deload) => (deload ? Math.max(1, Math.ceil(sl.sets / 2)) : sl.sets);
+
+function buildSession(type, deload) {
   const def = sessionDef(type);
   const entries = def.slots.map((sl) => {
     const ex = exDef(sl.ex);
-    const ref = lastSlotEntry(type, sl.key);
+    // Referans: aynı seans türünün yük azaltma olmayan son kaydı
+    const ref = lastSlotEntry(type, sl.key, null, null, true);
     const refSets = ref ? doneSets(ref.entry) : [];
     const sets = [];
-    for (let j = 0; j < sl.sets; j++) {
-      // Ağırlık ve tekrar son kayıtla önceden dolu gelir
+    for (let j = 0; j < setCount(sl, deload); j++) {
+      // Ağırlık ve tekrar son kayıtla önceden dolu gelir; lw/lr: o setin geçen seferki değeri
       const rs = refSets[j] || refSets[refSets.length - 1] || null;
-      const w = ex.load !== 'bodyweight' && rs && rs.w != null ? rs.w : null;
-      const r = rs && rs.r != null ? rs.r : sl.reps[0];
-      sets.push({ w, r, pr: r, done: false });
+      const lw = ex.load !== 'bodyweight' && rs && rs.w != null ? rs.w : null;
+      const lr = rs && rs.r != null ? rs.r : null;
+      const r = lr != null ? lr : sl.reps[0];
+      sets.push({ w: lw, r, pr: r, lw, lr, done: false });
     }
     return { slot: sl.key, ex: sl.ex, name: ex.name, sets };
   });
-  return { id: uid(), type, name: def.name, startedAt: new Date().toISOString(), finishedAt: null, entries };
+  const gap = daysSinceLast();
+  return { id: uid(), type, name: def.name, startedAt: new Date().toISOString(), finishedAt: null, deload: !!deload,
+    longBreak: gap != null && gap > PROGRAM.longBreak.days, entries };
+}
+
+/* ---------------- Öneri mantığı ---------------- */
+
+const bigStepOn = (exId) => !!(state.exSettings[exId] && state.exSettings[exId].bigStep);
+/** Artırma için gereken tekrar: üst sınır (büyük adım açıksa üst sınır + 2). */
+const topThreshold = (sl) => sl.reps[1] + (bigStepOn(sl.ex) ? PROGRAM.bigStep.extraReps : 0);
+
+/** Aynı seans türündeki önceki, yük azaltma olmayan kayıt. */
+const progressRef = (sess, slotKey) => lastSlotEntry(sess.type, slotKey, sess.id, sess.finishedAt, true);
+
+const allAtTop = (entry, thr) => entry.sets.length > 0 && entry.sets.every((x) => x.done && x.r != null && x.r >= thr);
+const maxW = (entry) => Math.max(0, ...doneSets(entry).map((x) => x.w || 0));
+
+/** Son kayıttan önceki, daha düşük ağırlıklı kayıt (önceki ağırlığa dönmek için). */
+function previousWeight(type, slotKey, ref) {
+  const top = maxW(ref.entry);
+  for (let i = state.sessions.indexOf(ref.session) - 1; i >= 0; i--) {
+    const s = state.sessions[i];
+    if (s.type !== type || s.deload) continue;
+    const e = s.entries.find((x) => x.slot === slotKey);
+    if (!e || !doneSets(e).length) continue;
+    const w = maxW(e);
+    if (w > 0 && w < top) return w;
+  }
+  return null;
+}
+
+/** Hareket için öneri: first | bump | back | same. Öneri sadece bilgidir, girişi engellemez. */
+function suggestion(sess, e) {
+  const sl = slotDef(sess.type, e.slot);
+  const ex = exDef(e.ex);
+  if (!sl || !ex || sess.deload) return null;
+  const ref = progressRef(sess, e.slot);
+  if (!ref) return ex.load === 'bodyweight' ? null : { kind: 'first', text: PROGRAM.firstTime };
+  if (ex.load === 'bodyweight') return null;
+  const thr = topThreshold(sl);
+  if (allAtTop(ref.entry, thr)) {
+    return { kind: 'bump', text: `Ağırlığı en küçük adımla artır. Geçen sefer ${fmt(maxW(ref.entry))} kg ile bütün setlerde ${thr}${bigStepOn(sl.ex) ? ' (büyük adım: üst sınır + 2)' : ''} tekrara ulaştın. Yeni kiloda tekrarların aralığın altına (${sl.reps[0]}) yakın düşmesi normal; oradan yeniden tırman.` };
+  }
+  const first = ref.entry.sets[0];
+  if (first && first.done && first.r != null && first.r < sl.reps[0]) {
+    const back = previousWeight(sess.type, e.slot, ref);
+    return { kind: 'back', text: back != null
+      ? `Geçen sefer ilk sette alt sınıra (${sl.reps[0]}) ulaşamadın: önceki ağırlığa dön (${fmt(back)} kg).`
+      : `Geçen sefer ilk sette alt sınıra (${sl.reps[0]}) ulaşamadın: kiloyu bir kademe azalt.` };
+  }
+  return { kind: 'same', text: 'Aynı kilo: geçen seferden bir tekrar fazlasını dene.' };
+}
+
+/** Bir setin "geçen / hedef" bilgisi. Hedef: aynı kiloda geçen seferden 1 fazla, üst sınırı geçmeden. */
+function setTarget(sess, e, j) {
+  if (sess.deload || ui.editId) return '';
+  const s = e.sets[j];
+  const sl = slotDef(sess.type, e.slot);
+  if (!sl || s.lr == null) return '';
+  const last = s.lw != null ? `${fmt(s.lw)}×${s.lr}` : `${s.lr}`;
+  if (s.lw != null && s.w != null && s.w > s.lw) return `Geçen ${last} · yeni kilo, hedef ${sl.reps[0]}+`;
+  return `Geçen ${last} → hedef ${Math.min(s.lr + 1, topThreshold(sl))}`;
+}
+
+/** Gerileme: aynı kilolarla, önceki aynı seansa göre toplam tekrar düştü. Kilo artırıldıysa gerileme sayılmaz. */
+function regressed(sess, e) {
+  const ref = progressRef(sess, e.slot);
+  if (!ref) return false;
+  const a = doneSets(e), b = doneSets(ref.entry);
+  const n = Math.min(a.length, b.length);
+  if (!n) return false;
+  let ra = 0, rb = 0;
+  for (let k = 0; k < n; k++) {
+    if ((a[k].w || 0) !== (b[k].w || 0)) return false;
+    ra += a[k].r || 0; rb += b[k].r || 0;
+  }
+  return ra < rb;
+}
+
+/** Art arda iki seansta en az üç harekette gerileme varsa, son seansın kimliğini döndürür. */
+function regressionWarning() {
+  const recent = state.sessions.filter((s) => !s.deload).slice(-2);
+  if (recent.length < 2) return null;
+  const bad = recent.every((s) => s.entries.filter((e) => regressed(s, e)).length >= 3);
+  const id = recent[1].id;
+  return bad && state.regressionDismissed !== id ? id : null;
 }
 
 /* ---------------- Arayüz durumu ---------------- */
@@ -284,6 +394,23 @@ function renderMigrationBanner() {
       <p style="margin:6px 0 10px">Uygulama yeni 4 seanslık programa geçti. Eski programın ${m.archived} antrenmanı silinmedi; <b>Geçmiş → Arşiv</b> bölümünde duruyor. Kilo ve bel kayıtların yerinde.</p>
       <button class="btn" data-act="dl-pre-backup">Geçiş öncesi yedeği indir</button>
       <button class="btn ghost" data-act="dismiss-migration">Tamam, gizle</button>
+    </section>`;
+}
+
+function renderDeloadCard() {
+  const dl = state.deloadMode;
+  const days = dl && state.deloadSince ? (Date.now() - new Date(state.deloadSince).getTime()) / DAY_MS : 0;
+  const open = ui.open.has('deload-info');
+  return `
+    <section class="card">
+      <div class="row-between">
+        <h2>Bu hafta yük azalt</h2>
+        <button class="switch ${dl ? 'on' : ''}" data-act="deload" role="switch" aria-checked="${dl}" aria-label="Bu hafta yük azalt"><span></span></button>
+      </div>
+      <p class="muted small" style="margin:8px 0 0">${PROGRAM.deload.how.slice(0, 3).map(esc).join(' ')}</p>
+      ${days >= 7 ? '<div class="note warn">1 hafta doldu: sonraki hafta normal programa, bıraktığın kilolarla dön.</div>' : ''}
+      <button class="linkbtn" data-act="toggle" data-key="deload-info">${open ? 'Gizle' : 'Ne zaman yapılır?'}</button>
+      ${open ? `<div class="infobox">${PROGRAM.deload.when.map((l) => `<p>${esc(l)}</p>`).join('')}<p>${esc(PROGRAM.deload.how[3])}</p></div>` : ''}
     </section>`;
 }
 
@@ -341,13 +468,21 @@ function renderHome() {
         ${last ? `Son seans: ${esc(last.name)}, ${fmtDate(last.finishedAt, true)}. ` : 'Yeni programda henüz kayıtlı seans yok. '}
         Otomatik sıra: <b>${esc(sessionDef(auto).name)}</b>${ui.typeChoice && ui.typeChoice !== auto ? ' (elle değiştirdin)' : ''}
       </div>
+      ${state.deloadMode ? '<div class="note blue">Yük azaltma açık: setler yarıya iner, her set 3 tekrar kala.</div>' : ''}
+      ${(() => { const g = daysSinceLast(); return g != null && g > PROGRAM.longBreak.days ? `<div class="note warn">${esc(PROGRAM.longBreak.text)}</div>` : ''; })()}
     </section>
+    ${(() => { const w = state.deloadMode ? null : regressionWarning(); return w ? `<section class="card calm">
+      <p style="margin:0 0 10px">Birkaç harekette gerileme var; yük azaltma haftası düşünebilirsin.</p>
+      <button class="btn ghost" data-act="dismiss-regression" data-id="${w}">Kapat</button>
+    </section>` : ''; })()}
 
     <section class="card">
       <h2>${esc(def.name)} planı</h2>
       <p class="muted small" style="margin:4px 0 0">${esc(def.about)}</p>
       <ul class="plan-list">${items}</ul>
     </section>
+
+    ${renderDeloadCard()}
 
     ${renderRules()}
 
@@ -393,13 +528,14 @@ function renderWorkout() {
   return `
     <div class="wk-head">
       <div>
-        <div class="eyebrow">${edit ? `Düzenleme · ${fmtDate(sess.finishedAt, true)}` : 'Seans'}</div>
+        <div class="eyebrow">${edit ? `Düzenleme · ${fmtDate(sess.finishedAt, true)}` : 'Seans'}${sess.deload ? ' · yük azaltma' : ''}</div>
         <div class="title">${esc(sess.name)}</div>
       </div>
       <div class="prog"><b id="prog">${done}/${total}</b><span>set</span></div>
     </div>
     <div class="progress"><div id="progbar" style="width:${total ? (done / total) * 100 : 0}%"></div></div>
     <div class="wk-meta"><span>⏱ <span id="elapsed">${elapsedText(sess)}</span></span>${edit ? '<span>Değişiklikler hemen kaydedilir</span>' : ''}</div>
+    ${sess.longBreak && !edit ? `<div class="note warn" style="margin:0 0 12px">${esc(PROGRAM.longBreak.text)}</div>` : ''}
 
     ${sess.entries.map((e, i) => renderExercise(sess, e, i)).join('')}
 
@@ -449,12 +585,15 @@ function renderExercise(sess, e, i) {
   if (ref) {
     const ds = doneSets(ref.entry);
     const vals = bodyweight ? ds.map((s) => `${fmt(s.r)}`).join(' · ') : ds.map((s) => `${fmt(s.w)}×${fmt(s.r)}`).join(' · ');
-    lastHtml = `<div class="last">Son ${esc(sess.name)}: <b>${vals}</b> <span>(${fmtDate(ref.session.finishedAt)})</span></div>`;
+    lastHtml = `<div class="last">Son ${esc(sess.name)}: <b>${vals}</b> <span>(${fmtDate(ref.session.finishedAt)}${ref.session.deload ? ', yük azaltma' : ''})</span></div>`;
   } else {
     lastHtml = `<div class="last">Bu seansta henüz kaydı yok.</div>`;
   }
 
   let notes = '';
+  const sug = ui.editId ? null : suggestion(sess, e);
+  if (sug) notes += `<div class="note ${sug.kind === 'bump' || sug.kind === 'back' ? 'warn' : 'blue'} sug sug-${sug.kind}">${sug.kind === 'bump' ? '⬆ ' : sug.kind === 'back' ? '↩ ' : ''}${esc(sug.text)}</div>`;
+  if (sess.deload) notes += `<div class="note blue">Yük azaltma: kilolar aynı, ${n} set, her set 3 tekrar kala bitir; tükeniş yok.</div>`;
   if (sl.warmup) notes += `<div class="note blue"><b>Isınma (kaydedilmez):</b> ${esc(sl.warmup.text)}</div>`;
   if (sl.effortNote) notes += `<div class="note blue">${esc(sl.effortNote)}</div>`;
   if (sl.note) notes += `<div class="note blue">${esc(sl.note)}</div>`;
@@ -470,7 +609,7 @@ function renderExercise(sess, e, i) {
   ].join('');
 
   const sets = e.sets.map((s, j) => {
-    const eff = effortFor(sl, j, n);
+    const eff = effortFor(sl, j, n, sess.deload);
     return `
     <div class="set2 ${s.done ? 'done' : ''}" id="set-${i}-${j}">
       <div class="set2-top">
@@ -479,6 +618,7 @@ function renderExercise(sess, e, i) {
         <span class="grow"></span>
         <button class="chk" data-act="check" data-ex="${i}" data-set="${j}" aria-label="Set ${j + 1} ${s.done ? 'tiki kaldır' : 'tamam'}">${CHECK_SVG}</button>
       </div>
+      ${setTarget(sess, e, j) ? `<div class="tgt" id="tgt-${i}-${j}">${esc(setTarget(sess, e, j))}</div>` : ''}
       <div class="set2-row ${bodyweight ? 'bw' : ''}">
         ${bodyweight ? '' : stepper(i, j, 'w', s.w, `Set ${j + 1} ağırlık`)}
         ${stepper(i, j, 'r', s.r, `Set ${j + 1} tekrar`)}
@@ -486,11 +626,13 @@ function renderExercise(sess, e, i) {
     </div>`;
   }).join('');
 
-  const formKey = `form-${i}`, subKey = `sub-${i}`;
+  const formKey = `form-${i}`, subKey = `sub-${i}`, setKey = `set-${i}`;
   const toggles = [
     `<button data-act="toggle" data-key="${formKey}" class="${ui.open.has(formKey) ? 'on' : ''}">Form</button>`,
     ex.sub ? `<button data-act="toggle" data-key="${subKey}" class="${ui.open.has(subKey) ? 'on' : ''}">Alet doluysa</button>` : '',
+    bodyweight ? '' : `<button data-act="toggle" data-key="${setKey}" class="${ui.open.has(setKey) ? 'on' : ''}">Ayar</button>`,
   ].filter(Boolean);
+  const big = bigStepOn(e.ex);
   const allDone = n && e.sets.every((s) => s.done);
   return `
     <article class="card ex ${allDone ? 'all-done' : ''} ${partner != null ? 'in-ss ss' + sl.ssPos : ''}" id="ex-${i}">
@@ -510,6 +652,9 @@ function renderExercise(sess, e, i) {
       </div>
       <div class="toggles" style="grid-template-columns:repeat(${toggles.length},1fr)">${toggles.join('')}</div>
       ${ui.open.has(formKey) ? `<div class="infobox"><strong>Form</strong>${renderForm(ex)}</div>` : ''}
+      ${ui.open.has(setKey) ? `<div class="infobox"><strong>Hareket ayarı</strong>
+        <div class="row-between"><span>Büyük ağırlık adımı</span><button class="switch ${big ? 'on' : ''}" data-act="bigstep" data-ex-id="${e.ex}" role="switch" aria-checked="${big}" aria-label="Büyük ağırlık adımı"><span></span></button></div>
+        <p class="muted small" style="margin-top:8px">Açıkken artırma önerisi, bütün setlerde üst sınırın 2 tekrar üstüne (${sl.reps[1] + PROGRAM.bigStep.extraReps}) çıkınca verilir. ${esc(PROGRAM.bigStep.text)}</p></div>` : ''}
       ${ui.open.has(subKey) ? `<div class="infobox"><strong>Alet doluysa</strong><p>Önce sırayı değiştir: bir sonraki hareketi yapıp geri dön. Alet uzun süre boşalmayacaksa o günlük yedeği kullan; set, tekrar ve zorluk aynı kalır.</p><p><b>Yedek:</b> ${esc(ex.sub)}</p></div>` : ''}
     </article>`;
 }
@@ -539,7 +684,7 @@ function sessionSummary(sess) {
   sess.entries.forEach((e) => {
     const bw = exDef(e.ex) && exDef(e.ex).load === 'bodyweight';
     const now = perf(e, bw);
-    const ref = lastSlotEntry(sess.type, e.slot, sess.id, sess.finishedAt);
+    const ref = sess.deload ? null : progressRef(sess, e.slot);
     const before = ref && perf(ref.entry, bw);
     if (now && before && (now.w > before.w || (now.w === before.w && now.r > before.r))) {
       improved.push(bw ? `${e.name}: ${before.r} → ${now.r} tekrar` : (now.w > before.w ? `${e.name}: ${fmt(before.w)} → ${fmt(now.w)} kg` : `${e.name}: ${fmt(now.w)} kg'da ${before.r} → ${now.r} tekrar`));
@@ -881,6 +1026,8 @@ function setRowRefresh(i, j) {
   row.classList.toggle('done', s.done);
   const card = document.getElementById(`ex-${i}`);
   if (card) card.classList.toggle('all-done', sess.entries[i].sets.every((x) => x.done));
+  const tg = document.getElementById(`tgt-${i}-${j}`);
+  if (tg) tg.textContent = setTarget(sess, sess.entries[i], j);
   ['w', 'r'].forEach((f) => {
     const inp = row.querySelector(`input[data-f="${f}"]`);
     if (inp && document.activeElement !== inp) inp.value = s[f] == null ? '' : (f === 'w' ? fmt(s[f]) : s[f]);
@@ -1078,7 +1225,7 @@ document.addEventListener('click', (ev) => {
     case 'start': {
       if (state.current) break;
       const type = ui.typeChoice || nextTypeAuto();
-      state.current = buildSession(type);
+      state.current = buildSession(type, state.deloadMode);
       ui.inWorkout = true;
       ui.summary = null;
       ui.open.clear();
@@ -1094,6 +1241,21 @@ document.addEventListener('click', (ev) => {
       if (fn) fn();
       break;
     }
+    case 'deload':
+      state.deloadMode = !state.deloadMode;
+      state.deloadSince = state.deloadMode ? new Date().toISOString() : null;
+      save(); render();
+      toast(state.deloadMode ? 'Yük azaltma açık' : 'Yük azaltma kapalı: program kaldığı yerden devam ediyor');
+      break;
+    case 'bigstep': {
+      const id = el.dataset.exId;
+      state.exSettings[id] = Object.assign({ bigStep: false, note: '' }, state.exSettings[id]);
+      state.exSettings[id].bigStep = !state.exSettings[id].bigStep;
+      save(); render();
+      break;
+    }
+    case 'dismiss-regression':
+      state.regressionDismissed = el.dataset.id; save(); render(); break;
     case 'resume':
       ui.inWorkout = true; ui.tab = 'train'; render(); window.scrollTo(0, 0); break;
     case 'close-summary':
