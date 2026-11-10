@@ -374,7 +374,19 @@ function regressionWarning() {
 
 /* ---------------- Arayüz durumu ---------------- */
 
+/* Seans ekranı görünümü ('focus' | 'list'): ayrı anahtarda, yedeğe girmez. */
+const VIEW_KEY = 'ironlog.view';
+function loadView() {
+  try { return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'focus'; } catch (_) { return 'focus'; }
+}
+function saveView(v) {
+  try { localStorage.setItem(VIEW_KEY, v); } catch (_) {}
+}
+
 const ui = {
+  view: loadView(),     // Seans görünümü: odak ya da tüm seans
+  focusSlot: null,      // Odak: elle seçilen hareket (yuva anahtarı; sıra değişse de doğru kalır)
+  focusSet: null,       // Odak: elle seçilen set { slot, j } (düzeltme ya da belirli set)
   tab: 'train',
   typeChoice: null,     // Ana ekranda elle seçilen seans (null = otomatik sıra)
   inWorkout: false,     // Seans ekranı açık mı (açılışta yarım seans için "devam et" sorulur)
@@ -548,6 +560,8 @@ function weightStep(exId) {
 function renderWorkout() {
   const sess = activeSess();
   const edit = !!ui.editId;
+  const focus = !edit && ui.view === 'focus';
+  const cur = focus ? focusCurrent(sess) : null;
   const { total, done } = countSets(sess);
   return `
     <div class="wk-head">
@@ -558,10 +572,14 @@ function renderWorkout() {
       <div class="prog"><b id="prog">${done}/${total}</b><span>set</span></div>
     </div>
     <div class="progress"><div id="progbar" style="width:${total ? (done / total) * 100 : 0}%"></div></div>
-    <div class="wk-meta"><span>⏱ <span id="elapsed">${elapsedText(sess)}</span></span>${edit ? '<span>Değişiklikler hemen kaydedilir</span>' : ''}</div>
+    <div class="wk-meta ${edit ? '' : 'has-view'}"><span>⏱ <span id="elapsed">${elapsedText(sess)}</span></span>${edit ? '<span>Değişiklikler hemen kaydedilir</span>' : `
+      <div class="viewseg" role="group" aria-label="Görünüm">
+        <button data-act="view" data-view="focus" class="${focus ? 'on' : ''}" aria-pressed="${focus}">Odak</button>
+        <button data-act="view" data-view="list" class="${focus ? '' : 'on'}" aria-pressed="${!focus}">Tüm seans</button>
+      </div>`}</div>
     ${sess.longBreak && !edit ? `<div class="note warn" style="margin:0 0 12px">${esc(PROGRAM.longBreak.text)}</div>` : ''}
 
-    ${sess.entries.map((e, i) => renderExercise(sess, e, i)).join('')}
+    ${focus ? renderFocus(sess, cur) : sess.entries.map((e, i) => renderExercise(sess, e, i)).join('')}
 
     <section class="card">
       <label class="note-label" for="sessNote">Seans notu</label>
@@ -571,8 +589,242 @@ function renderWorkout() {
     ${edit ? `
       <button class="btn good" data-act="edit-done" style="margin-top:6px">Düzenlemeyi bitir</button>
       <button class="btn danger" data-act="edit-revert">Değişiklikleri geri al</button>` : `
-      <button class="btn good" data-act="finish" style="margin-top:6px">Seansı bitir ve kaydet</button>
+      ${focus && !cur ? '' : '<button class="btn good" data-act="finish" style="margin-top:6px">Seansı bitir ve kaydet</button>'}
       <button class="btn danger" data-act="cancel">Seansı iptal et</button>`}`;
+}
+
+/* ---------------- Odak görünümü ---------------- */
+/* Sadece şu anki set gösterilir. Şu anki set her seferinde durumdan hesaplanır:
+   1) elle seçilen set (ui.focusSet), 2) elle seçilen hareket bitene kadar o hareket (ui.focusSlot),
+   3) otomatik: bugünkü sırada yapılmamış ilk set. Süperset çifti tur tur sırayla gider. */
+
+function focusActive() {
+  return !ui.editId && ui.view === 'focus' && ui.tab === 'train' && ui.inWorkout && !!state.current;
+}
+
+const focusable = (sess, k) => { const e = sess.entries[k]; return !e.skipped && !!slotDef(sess.type, e.slot) && !!exDef(e.ex); };
+
+/** Bir hareket bloğunun setleri yapılış sırasıyla: tek hareket 1,2,3…; süperset A1, B1, A2, B2… (set sayısı farklıysa fazlası sona). */
+function blockSets(sess, idx) {
+  const out = [];
+  const max = Math.max(0, ...idx.map((k) => sess.entries[k].sets.length));
+  for (let j = 0; j < max; j++) idx.forEach((k) => { if (j < sess.entries[k].sets.length) out.push({ i: k, j }); });
+  return out;
+}
+
+/** Şu anki seti bulur (durumu değiştirmez). null: zorunlu setlerin hepsi tamam. */
+function focusPick(sess, pinSlot, pickSet) {
+  const find = (slot) => sess.entries.findIndex((e) => e.slot === slot);
+  if (pickSet) {
+    const i = find(pickSet.slot);
+    if (i >= 0 && focusable(sess, i) && sess.entries[i].sets[pickSet.j]) return { i, j: pickSet.j, how: 'set' };
+  }
+  const blocks = entryBlocks(sess);
+  const undone = (idx) => blockSets(sess, idx).find((p) => !sess.entries[p.i].sets[p.j].done);
+  if (pinSlot) {
+    const i = find(pinSlot);
+    const b = i >= 0 && focusable(sess, i) ? blocks.find((x) => x.idx.includes(i)) : null;
+    const p = b && undone(b.idx.filter((k) => focusable(sess, k)));
+    if (p) return { ...p, how: 'pin' };
+  }
+  // Otomatik sıra: isteğe bağlı hareket (crunch) otomatik sıraya girmez; bitiş ekranından seçilir
+  for (const b of blocks) {
+    const p = undone(b.idx.filter((k) => focusable(sess, k) && !slotDef(sess.type, sess.entries[k].slot).optional));
+    if (p) return { ...p, how: 'auto' };
+  }
+  return null;
+}
+
+/** Şu anki set; süresi dolan elle seçimleri temizler. */
+function focusCurrent(sess) {
+  const p = focusPick(sess, ui.focusSlot, ui.focusSet);
+  if (ui.focusSet && (!p || p.how !== 'set')) ui.focusSet = null;
+  if (ui.focusSlot && (!p || p.how === 'auto')) ui.focusSlot = null;
+  return p;
+}
+
+/** Bu set bitince ne var: aynı hareketin sonraki seti, süperset eşi ya da sonraki hareket. */
+function focusNextHtml(sess, cur) {
+  const e = sess.entries[cur.i];
+  const s = e.sets[cur.j];
+  const was = s.done;
+  s.done = true;
+  const nx = focusPick(sess, ui.focusSlot, null);
+  s.done = was;
+  const sl = slotDef(sess.type, e.slot);
+  const partner = supersetPartner(sess, cur.i);
+  const noRest = partner != null && sl.ssPos === 1 && sess.entries[partner].sets.some((x) => !x.done);
+  if (!nx) return '<span>Sıradaki:</span> <b>bu son set</b>, ardından seansı bitir';
+  const what = nx.i === cur.i ? `Set ${nx.j + 1}` : `${esc(sess.entries[nx.i].name)} · Set ${nx.j + 1}`;
+  return `<span>Sıradaki:</span> ${noRest ? 'dinlenmeden' : `${fmtRest(sl.rest)} dinlenme, sonra`} <b>${what}</b>`;
+}
+
+/** Hareketin setleri tek satırda: yapılanlar değerleriyle, kalanlar boş. Dokununca o set açılır (düzeltme / tik kaldırma). */
+function focusStrip(sess, i, j) {
+  const e = sess.entries[i];
+  const bw = exDef(e.ex).load === 'bodyweight';
+  return e.sets.map((s, k) => {
+    const v = s.done ? (bw ? `${s.r == null ? '–' : s.r}` : `${fmt(s.w)}×${s.r == null ? '–' : s.r}`) : (k === j ? 'şimdi' : '–');
+    return `<button class="fx-chip${s.done ? ' done' : ''}${k === j ? ' cur' : ''}" data-act="focus-set" data-slot="${esc(e.slot)}" data-set="${k}" aria-label="Set ${k + 1}${s.done ? ' tamam, düzelt' : ''}"><small>Set ${k + 1}</small><span>${v}</span></button>`;
+  }).join('');
+}
+
+function refreshFocusStrip() {
+  const el = document.getElementById('fx-strip');
+  const sess = activeSess();
+  if (!el || !sess) return;
+  const i = Number(el.dataset.ex);
+  if (sess.entries[i]) el.innerHTML = focusStrip(sess, i, Number(el.dataset.set));
+}
+
+/** Bugünkü sıra: her hareket bir satır, yapılan/toplam set. Dokununca o harekete geçilir. */
+function focusListHtml(sess, cur) {
+  const rows = sess.entries.map((e, k) => {
+    const sl = slotDef(sess.type, e.slot);
+    if (!sl || !exDef(e.ex)) return '';
+    const n = e.sets.length, d = doneSets(e).length;
+    const num = String(k + 1).padStart(2, '0');
+    const ss = sl.ss ? ' ss' : '';
+    if (e.skipped) {
+      return `<div class="fx-row skipped${ss}"><span class="n">${num}</span><span class="nm">${esc(e.name)}<small>Bugün atlandı</small></span><button class="btn ghost mini" data-act="skip" data-ex="${k}">Geri al</button></div>`;
+    }
+    const sub = [e.sub ? 'Yedek' : '', sl.ss ? `Süperset ${sl.ssPos}/2` : '', sl.optional ? 'İsteğe bağlı' : ''].filter(Boolean).join(' · ');
+    return `<button class="fx-row${cur && cur.i === k ? ' on' : ''}${n && d === n ? ' done' : ''}${ss}" data-act="focus-ex" data-slot="${esc(e.slot)}"><span class="n">${num}</span><span class="nm">${esc(e.name)}${sub ? `<small>${sub}</small>` : ''}</span><span class="c">${d}/${n}</span></button>`;
+  }).join('');
+  const manual = ui.focusSlot || ui.focusSet;
+  return `
+    <section class="card fx-list">
+      <h2>Bugünkü sıra</h2>
+      <p class="muted small" style="margin:4px 0 6px">Başka bir harekete geçmek için dokun. O hareket bitince otomatik sıraya dönülür.</p>
+      ${manual ? '<button class="btn ghost mini" data-act="focus-auto" style="margin-bottom:8px">Otomatik sıraya dön</button>' : ''}
+      ${rows}
+    </section>`;
+}
+
+/** Zorunlu setlerin hepsi tamam. */
+function focusDoneHtml(sess) {
+  const { total, done } = countSets(sess);
+  const opt = sess.entries.map((e, k) => ({ e, k })).filter(({ e, k }) => focusable(sess, k) && slotDef(sess.type, e.slot).optional && e.sets.some((s) => !s.done));
+  return `
+    <section class="card hero fx-alldone">
+      <div class="eyebrow">Bütün setler tamam</div>
+      <div class="hero-title" style="margin-top:6px">${done}/${total} set bitti</div>
+      <p class="muted small" style="margin:4px 0 0">İstersen aşağıya not ekle, sonra seansı kaydet.</p>
+      ${opt.map(({ e, k }) => `
+      <div class="fx-opt">
+        <div><b>${esc(e.name)}</b> <span class="muted small">isteğe bağlı · ${doneSets(e).length}/${e.sets.length}</span></div>
+        <div class="btn-grid">
+          <button class="btn mini" data-act="focus-ex" data-slot="${esc(e.slot)}">Yap</button>
+          <button class="btn mini ghost" data-act="skip" data-ex="${k}">Bugün atla</button>
+        </div>
+      </div>`).join('')}
+      <button class="btn primary" data-act="finish" style="margin-top:14px">Seansı bitir ve kaydet</button>
+    </section>`;
+}
+
+function renderFocus(sess, cur) {
+  const list = focusListHtml(sess, cur);
+  if (!cur) return focusDoneHtml(sess) + list;
+  const { i, j } = cur;
+  const e = sess.entries[i];
+  const p = renderExercise(sess, e, i, true);
+  const s = e.sets[j];
+  const eff = effortFor(p.sl, j, p.n, sess.deload);
+  const tgt = setTarget(sess, e, j);
+  const bw = p.bodyweight;
+  const manual = ui.focusSlot || ui.focusSet;
+  const action = s.done
+    ? `<div class="btn-grid fx-act">
+        <button class="btn good" data-act="focus-done">Tamam</button>
+        <button class="btn danger" data-act="check" data-ex="${i}" data-set="${j}">Tiki kaldır</button>
+      </div>`
+    : `<button class="btn primary fx-done" data-act="check" data-ex="${i}" data-set="${j}">Seti tamamla</button>`;
+  return `
+    <article class="card ex fx ${p.partner != null ? 'in-ss' : ''}" id="ex-${i}">
+      <div class="ex-head">
+        <span class="ex-num">${String(i + 1).padStart(2, '0')}</span>
+        <div class="grow">
+          <div class="ex-tags"><span class="kind">${esc(p.ex.muscle)}</span>${p.tags}</div>
+          <h3>${esc(p.title)}</h3>
+          ${p.machine ? `<div class="machine-note">⚙ ${esc(p.machine)}</div>` : ''}
+        </div>
+      </div>
+      <div class="ex-meta">${p.n} set × ${rangeText(p.sl.reps)} tekrar${p.ex.perSide ? ' (her kol)' : ''} · ${p.restText}</div>
+      ${p.lastHtml}
+      ${p.sugHtml}
+      <div class="set2 fx-set ${s.done ? 'done' : ''}" id="set-${i}-${j}">
+        <div class="set2-top">
+          <span class="sn">Set ${j + 1} / ${p.n}</span>
+          <span class="eff ${eff === PROGRAM.effortLabels.fail ? 'fail' : ''}">${esc(eff)}</span>
+          <span class="grow"></span>
+          ${s.done ? '<span class="fx-state">Tamamlandı</span>' : ''}
+        </div>
+        ${tgt ? `<div class="tgt" id="tgt-${i}-${j}">${esc(tgt)}</div>` : ''}
+        <div class="set2-row ${bw ? 'bw' : ''}">
+          ${bw ? '' : `<div class="fx-field"><span class="fx-lbl">kg <small>(±${fmt(weightStep(e.ex))})</small></span>${stepper(i, j, 'w', s.w, `Set ${j + 1} ağırlık`)}</div>`}
+          <div class="fx-field"><span class="fx-lbl">${p.ex.perSide ? 'tekrar / kol' : 'tekrar'}</span>${stepper(i, j, 'r', s.r, `Set ${j + 1} tekrar`)}</div>
+        </div>
+        ${action}
+      </div>
+      <div class="fx-strip" id="fx-strip" data-ex="${i}" data-set="${j}">${focusStrip(sess, i, j)}</div>
+      ${s.done ? '' : `<div class="fx-next" id="fx-next">${focusNextHtml(sess, cur)}</div>`}
+      ${manual && !s.done ? '<button class="btn ghost mini fx-auto" data-act="focus-auto">Otomatik sıraya dön</button>' : ''}
+      <div class="fx-more">
+        ${p.notes}
+        ${p.skip}
+        ${p.toggles}
+        ${p.boxes}
+      </div>
+    </article>
+    ${list}`;
+}
+
+/** Şu anki set bloğu (ve tamamla düğmesi) sayaç çubuğunun ve alt menünün üstünde görünsün diye sayfayı kaydırır. */
+function focusScroll() {
+  if (!focusActive()) return;
+  const blk = document.querySelector('.fx-set');
+  if (!blk) { window.scrollTo(0, 0); return; }
+  const tabs = document.querySelector('.tabs');
+  const tm = document.getElementById('timer');
+  let limit = tabs ? tabs.getBoundingClientRect().top : window.innerHeight;
+  if (tm && !tm.hidden) limit = Math.min(limit, tm.getBoundingClientRect().top);
+  const r = blk.getBoundingClientRect();
+  const top = r.top + window.scrollY, bottom = r.bottom + window.scrollY;
+  window.scrollTo(0, Math.max(0, Math.min(bottom + 10 - limit, top - 8)));
+}
+
+/** iPhone'da düğmeler odağı almaz: kutu hâlâ açıksa önce kapat (change çalışsın, kilo sonraki setlere geçsin). */
+function commitInput() {
+  const a = document.activeElement;
+  if (a && a.matches && a.matches('input[data-f]')) a.blur();
+}
+
+/** Odak görünümünde set tiki: toggleSet aynen çalışır, sonra görünüm sıradaki sete geçer. */
+function focusCheck(i, j) {
+  commitInput();
+  const sess = activeSess();
+  const e = sess.entries[i];
+  const wasDone = e.sets[j].done;
+  const snap = { slot: ui.focusSlot, set: ui.focusSet };
+  const before = ui.undo;
+  toggleSet(i, j);
+  const s = e.sets[j];
+  if (s.done === wasDone) return; // kilo girilmemiş vb.: toggleSet uyardı
+  if (s.done) {
+    if (ui.focusSet && ui.focusSet.slot === e.slot && ui.focusSet.j === j) ui.focusSet = null;
+    const u = ui.undo;
+    if (u && u !== before) {
+      // Geri al: aynı sete, tiki kalkmış olarak dön
+      ui.undo = () => {
+        u();
+        ui.focusSlot = snap.slot; ui.focusSet = snap.set;
+        const p = focusPick(sess, ui.focusSlot, ui.focusSet);
+        if (!p || sess.entries[p.i] !== e || p.j !== j) ui.focusSet = { slot: e.slot, j };
+      };
+    }
+  }
+  render();
+  focusScroll();
 }
 
 function supersetPartner(sess, i) {
@@ -618,7 +870,8 @@ function warmupHtml(sl, e, i) {
   return `<div class="note blue warm" id="warm-${i}"><b>Isınma (kaydedilmez):</b> ${parts.length ? `<span class="warm-sets">${parts.map(esc).join(' → ')}</span>` : ''}<span class="note-sub2">${esc(sl.warmup.text)}</span></div>`;
 }
 
-function renderExercise(sess, e, i) {
+/** parts = true: kartın parçalarını nesne olarak döndürür (odak görünümü aynı parçaları kullanır). */
+function renderExercise(sess, e, i, parts) {
   const sl = slotDef(sess.type, e.slot);
   const ex = exDef(e.ex);
   if (!sl || !ex) return '';
@@ -650,6 +903,7 @@ function renderExercise(sess, e, i) {
   let notes = '';
   const sug = live ? suggestion(sess, e) : null;
   if (sug) notes += `<div class="note ${sug.kind === 'bump' || sug.kind === 'back' ? 'warn' : 'blue'} sug sug-${sug.kind}">${sug.kind === 'bump' ? '⬆ ' : sug.kind === 'back' ? '↩ ' : ''}${esc(sug.text)}</div>`;
+  const sugHtml = notes;
   if (sess.deload) notes += `<div class="note blue">Yük azaltma: kilolar aynı, ${n} set, her set 3 tekrar kala bitir; tükeniş yok.</div>`;
   if (live) notes += warmupHtml(sl, e, i);
   if (sl.effortNote) notes += `<div class="note blue">${esc(sl.effortNote)}</div>`;
@@ -717,6 +971,12 @@ function renderExercise(sess, e, i) {
       <p class="muted small" style="margin-top:8px">Açıkken artırma önerisi, bütün setlerde üst sınırın 2 tekrar üstüne (${sl.reps[1] + PROGRAM.bigStep.extraReps}) çıkınca verilir. ${esc(PROGRAM.bigStep.text)}</p>`}
     </div>`;
 
+  if (parts) {
+    return { sl, ex, n, title, tags, restText, partner, bodyweight, machine: cfg.note || '', lastHtml, sugHtml, notes: notes.slice(sugHtml.length),
+      skip: sl.optional && live ? `<button class="btn ghost mini" data-act="skip" data-ex="${i}" style="margin-top:10px">Bugün atla</button>` : '',
+      toggles: `<div class="toggles" style="grid-template-columns:repeat(${toggles.length},1fr)">${toggles.join('')}</div>`,
+      boxes: `${ui.open.has(formKey) && !e.sub ? `<div class="infobox"><strong>Form</strong>${renderForm(ex)}</div>` : ''}${ui.open.has(subKey) ? subBox : ''}${ui.open.has(cfgKey) ? cfgBox : ''}` };
+  }
   return `
     <article class="card ex ${allDone ? 'all-done' : ''} ${partner != null ? 'in-ss ss' + sl.ssPos : ''}" id="ex-${i}">
       <div class="ex-head">
@@ -1233,7 +1493,8 @@ function setRowRefresh(i, j, force) {
   // Tek bir seti ve ilerleme çubuğunu yerinde günceller (sayfa kaymasın diye tam yenileme yapmaz)
   const sess = activeSess();
   const row = document.getElementById(`set-${i}-${j}`);
-  if (!row) { render(); return; }
+  // Odak görünümünde yalnız şu anki set ekranda: diğer setler için tam yenileme yapma (change içinde dokunuşu yutardı)
+  if (!row) { if (focusActive()) { refreshFocusStrip(); refreshProgress(); return; } render(); return; }
   const s = sess.entries[i].sets[j];
   row.classList.toggle('done', s.done);
   const card = document.getElementById(`ex-${i}`);
@@ -1247,6 +1508,7 @@ function setRowRefresh(i, j, force) {
     if (inp && (force || document.activeElement !== inp)) inp.value = s[f] == null ? '' : (f === 'w' ? fmt(s[f]) : s[f]);
   });
   refreshProgress();
+  if (focusActive()) refreshFocusStrip();
 }
 
 function toggleSet(i, j) {
@@ -1278,8 +1540,8 @@ function toggleSet(i, j) {
   const undo = () => { s.done = false; s.r = prevR; save(); if (live) stopTimer(); setRowRefresh(i, j); };
   if (!live) { toastUndo(`Set ${j + 1} kaydedildi`, undo); return; }
   const partner = supersetPartner(sess, i);
-  if (partner != null && sl.ssPos === 1) {
-    // Süpersetin ilk hareketi: dinlenmeden ikinciye geç
+  if (partner != null && sl.ssPos === 1 && sess.entries[partner].sets.some((x) => !x.done)) {
+    // Süpersetin ilk hareketi: dinlenmeden ikinciye geç (ikincinin seti kalmadıysa normal dinlenme)
     stopTimer();
     toastUndo(`Dinlenmeden: ${sess.entries[partner].name}`, undo);
     const card = document.getElementById('ex-' + partner);
@@ -1502,18 +1764,65 @@ document.addEventListener('click', (ev) => {
       ui.inWorkout = true;
       ui.summary = null;
       ui.open.clear();
-      save(); render(); window.scrollTo(0, 0);
+      ui.focusSlot = null; ui.focusSet = null;
+      save(); render(); window.scrollTo(0, 0); focusScroll();
       break;
     }
     case 'check':
-      if (activeSess()) toggleSet(Number(el.dataset.ex), Number(el.dataset.set)); break;
+      if (!activeSess()) break;
+      if (focusActive()) focusCheck(Number(el.dataset.ex), Number(el.dataset.set));
+      else toggleSet(Number(el.dataset.ex), Number(el.dataset.set));
+      break;
     case 'step':
       if (activeSess()) stepValue(Number(el.dataset.ex), Number(el.dataset.set), el.dataset.f, Number(el.dataset.d)); break;
     case 'undo': {
       const fn = ui.undo; ui.undo = null; $('#toast').hidden = true;
       if (fn) fn();
+      if (fn && focusActive()) { render(); focusScroll(); }
       break;
     }
+    case 'view': {
+      commitInput();
+      const sess = activeSess();
+      const p = sess && !ui.editId ? focusPick(sess, ui.focusSlot, ui.focusSet) : null;
+      ui.view = el.dataset.view === 'list' ? 'list' : 'focus';
+      saveView(ui.view);
+      render();
+      if (ui.view === 'focus') focusScroll();
+      else if (p) { const c = document.getElementById(`ex-${p.i}`); if (c && c.scrollIntoView) c.scrollIntoView({ block: 'start' }); }
+      break;
+    }
+    case 'focus-ex': {
+      // Elle hareket seçimi: o hareket bitene kadar onda kalınır. Bitmiş harekete dokunulursa son seti düzeltmek için açılır.
+      commitInput();
+      const sess = activeSess();
+      const i = sess ? sess.entries.findIndex((x) => x.slot === el.dataset.slot) : -1;
+      if (i < 0) break;
+      const e = sess.entries[i];
+      const first = e.sets.findIndex((s) => !s.done);
+      if (first >= 0) {
+        ui.focusSlot = e.slot; ui.focusSet = null;
+        const p = focusPick(sess, ui.focusSlot, null);
+        if (p && p.i !== i) ui.focusSet = { slot: e.slot, j: first }; // süperset eşi değil, dokunulan hareket
+      } else if (e.sets.length) {
+        ui.focusSet = { slot: e.slot, j: e.sets.length - 1 };
+      }
+      render(); focusScroll();
+      break;
+    }
+    case 'focus-set':
+      commitInput();
+      ui.focusSet = { slot: el.dataset.slot, j: Number(el.dataset.set) };
+      render(); focusScroll();
+      break;
+    case 'focus-done':
+      commitInput();
+      ui.focusSet = null; render(); focusScroll();
+      break;
+    case 'focus-auto':
+      commitInput();
+      ui.focusSet = null; ui.focusSlot = null; render(); focusScroll();
+      break;
     case 'deload':
       state.deloadMode = !state.deloadMode;
       state.deloadSince = state.deloadMode ? new Date().toISOString() : null;
@@ -1543,7 +1852,7 @@ document.addEventListener('click', (ev) => {
     case 'dismiss-regression':
       state.regressionDismissed = el.dataset.id; save(); render(); break;
     case 'resume':
-      ui.inWorkout = true; ui.tab = 'train'; render(); window.scrollTo(0, 0); break;
+      ui.inWorkout = true; ui.tab = 'train'; render(); window.scrollTo(0, 0); focusScroll(); break;
     case 'close-summary':
       ui.summary = null; render(); break;
     case 'edit-session': startEdit(el.dataset.id); break;
