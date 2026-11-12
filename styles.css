@@ -578,3 +578,11 @@ body.sheet-open { overflow: hidden; }
 .fx-more-btn .muted { flex: 1; font-weight: 500; }
 .fx-more { margin-top: 0; padding-bottom: 4px; }
 .fx-more .ex-meta { margin-top: 2px; }
+
+/* ---- Aşama 5: hafif ana ekran ---- */
+.opt-row { min-height: 56px; padding: 8px 0; border-top: 1px solid var(--line); gap: 12px; }
+.opt-row.first { margin-top: 12px; }
+.opt-label { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; text-align: left; border: 0; background: none; padding: 0; min-height: 44px; justify-content: center; color: var(--text); font-size: 16px; }
+.opt-label .chev { font-style: normal; }
+.hero .infobox { margin-bottom: 4px; }
+.hero > .muted.small { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 0 !important; }

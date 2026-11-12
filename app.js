@@ -8,7 +8,7 @@
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
 const DATA_VERSION = 4;
 const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4']; // sürüm geçişlerinden önceki birebir kopyalar
-const APP_VERSION = '4.7.0';
+const APP_VERSION = '4.8.0';
 const LATE_FINISH_MS = 30 * 60000;      // son setten bu kadar sonra bitirilirse bitiş zamanı son set sayılır
 const WAIST_EVERY_DAYS = 14;
 
@@ -498,21 +498,18 @@ function renderRenameReport() {
     </section>`;
 }
 
-function renderDeloadCard() {
+/** Sıradaki seans kartında tek satır: yük azaltma anahtarı. Açıklaması satıra dokununca açılır. */
+function renderDeloadRow() {
   const dl = state.deloadMode;
   const days = dl && state.deloadSince ? (Date.now() - new Date(state.deloadSince).getTime()) / DAY_MS : 0;
   const open = ui.open.has('deload-info');
   return `
-    <section class="card">
-      <div class="row-between">
-        <h2>Bu hafta yük azalt</h2>
+      <div class="row-between opt-row">
+        <button class="opt-label" data-act="toggle" data-key="deload-info" aria-expanded="${open}"><b>Bu hafta yük azalt</b><span class="muted small">${dl ? 'Açık: setler yarıya, her set 3 kala' : 'Ne zaman, nasıl?'} <i class="chev">${open ? '−' : '+'}</i></span></button>
         <button class="switch ${dl ? 'on' : ''}" data-act="deload" role="switch" aria-checked="${dl}" aria-label="Bu hafta yük azalt"><span></span></button>
       </div>
-      <p class="muted small" style="margin:8px 0 0">${PROGRAM.deload.how.slice(0, 3).map(esc).join(' ')}</p>
       ${days >= 7 ? '<div class="note warn">1 hafta doldu: sonraki hafta normal programa, bıraktığın kilolarla dön.</div>' : ''}
-      <button class="linkbtn" data-act="toggle" data-key="deload-info">${open ? 'Gizle' : 'Ne zaman yapılır?'}</button>
-      ${open ? `<div class="infobox">${PROGRAM.deload.when.map((l) => `<p>${esc(l)}</p>`).join('')}<p>${esc(PROGRAM.deload.how[3])}</p></div>` : ''}
-    </section>`;
+      ${open ? `<div class="infobox">${PROGRAM.deload.how.map((l) => `<p>${esc(l)}</p>`).join('')}${PROGRAM.deload.when.map((l) => `<p>${esc(l)}</p>`).join('')}</div>` : ''}`;
 }
 
 function renderRules() {
@@ -567,15 +564,15 @@ function renderHome() {
         </div>
       </div>
       <div class="seg seg4">${typeBtns}</div>
-      ${state.current ? '' : `<div class="row-between short-row">
-        <div><b>Kısa seans</b><div class="muted small">Her hareketten 1 set az, crunch yok. Süpersetler kalır.</div></div>
+      ${state.current ? '' : `<div class="row-between opt-row first">
+        <div class="opt-label"><b>Kısa seans</b><span class="muted small">Her hareketten 1 set az, crunch yok</span></div>
         <button class="switch ${ui.shortChoice ? 'on' : ''}" data-act="short" role="switch" aria-checked="${!!ui.shortChoice}" aria-label="Kısa seans"><span></span></button>
-      </div>`}
+      </div>
+      ${renderDeloadRow()}`}
       <div class="muted small" style="margin-top:12px">
         ${last ? `Son seans: ${esc(last.name)}, ${fmtDate(last.finishedAt, true)}. ` : 'Yeni programda henüz kayıtlı seans yok. '}
         Otomatik sıra: <b>${esc(sessionDef(auto).name)}</b>${ui.typeChoice && ui.typeChoice !== auto ? ' (elle değiştirdin)' : ''}
       </div>
-      ${state.deloadMode ? '<div class="note blue">Yük azaltma açık: setler yarıya iner, her set 3 tekrar kala.</div>' : ''}
       ${(() => { const g = daysSinceLast(); return g != null && g > PROGRAM.longBreak.days ? `<div class="note warn">${esc(PROGRAM.longBreak.text)}</div>` : ''; })()}
     </section>
     ${(() => { const w = state.deloadMode ? null : regressionWarning(); return w ? `<section class="card calm">
@@ -588,10 +585,6 @@ function renderHome() {
       <p class="muted small" style="margin:4px 0 0">${esc(def.about)}</p>
       <ul class="plan-list">${items}</ul>
     </section>
-
-    ${renderDeloadCard()}
-
-    ${renderRules()}
 
     ${state.current ? '' : `<div class="sticky-cta">
       <button class="btn primary" data-act="start">${esc(def.name)}${ui.shortChoice ? ' (kısa)' : ''} seansına başla</button>
@@ -1221,6 +1214,11 @@ function renderSettings() {
   const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   return `
     <h1 class="page-title">Veri</h1>
+    <section class="card">
+      <h2>Program</h2>
+      <p class="muted small" style="margin:4px 0 0">${esc(PROGRAM.name)}: ${PROGRAM.rotation.map((t) => esc(sessionDef(t).name)).join(' → ')}. Her seansta geçerli kurallar aşağıda.</p>
+    </section>
+    ${renderRules()}
     <section class="card">
       <h2>Yedekleme</h2>
       <p class="muted small">Kayıtlar yalnızca bu telefonda saklanır. Telefon değiştirirken veya ara sıra güvence için yedek al.</p>
