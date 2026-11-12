@@ -32,8 +32,14 @@ ekranlar bu dosyadan üretilir. Form ipuçları, yedek hareketler, haftalık set
 - `manifest.webmanifest`, `icons/` – ana ekran ikonu ve ayarları
 
 ## Veri sürümleri
-Veri `ironlog.v1` anahtarında, sürüm numaralı biçimde saklanır (şu an 3). Uygulama eski veriyle
-açıldığında `migrate()` onu kayıpsız yeni biçime çevirir ve geçiş öncesi kopyayı `ironlog.backup.pre-v3` anahtarında saklar.
+Veri `ironlog.v1` anahtarında, sürüm numaralı biçimde saklanır (şu an 4). Uygulama eski veriyle
+açıldığında `migrate()` onu kayıpsız yeni biçime çevirir ve geçiş öncesi kopyayı
+`ironlog.backup.pre-v<sürüm>` anahtarında saklar (Veri sekmesinden indirilebilir).
+
+Hareket adları kayıtlarda değil `program.js` içinde tutulur: bir hareketin adını değiştirmek için
+yalnızca `name` alanını değiştir, eski kayıtlar yeni adla görünür (kimlik `ex` aynı kalmalı).
+Bir hareketi başka bir hareketle değiştirirken yeni bir `ex` kimliği ve yeni bir yuva `key` değeri ver,
+eski yuvayı `retiredSlots` altına taşı: eski kayıtlar ayrı hareket olarak kalır, yenisinin geçmişi boş başlar.
 
 ## Yayınlama
 GitHub → Settings → Pages → Source: "Deploy from a branch", Branch: `main`, klasör: `/ (root)`.

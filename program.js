@@ -37,8 +37,8 @@ const PROGRAM = {
     "about": "Göğüs, sırt, omuz ve kol. 21 çalışma seti, yaklaşık 70 dakika. Hareketleri yazılı sırayla yap.",
     "slots": [
       {
-        "key": "ua1",
-        "ex": "chestpress",
+        "key": "ua1s",
+        "ex": "smithbench",
         "sets": 4,
         "reps": [
           6,
@@ -47,10 +47,11 @@ const PROGRAM = {
         "effort": "rir12",
         "rest": 150,
         "warmup": {
-          "plan": [{"pct":50,"reps":"8–10"},{"pct":75,"reps":"3–5"}],
+          "plan": [{"bar":true,"reps":"8–10"},{"pct":75,"reps":"3–5"}],
           "sets": true,
-          "text": "Seansın ilk hareketi: 2 ısınma seti. Yarı kiloyla 8–10 tekrar, 1 dakika dinlenme, sonra yaklaşık dörtte üç kiloyla 3–5 tekrar. İkisi de kolay olmalı; amaç yorulmak değil, hareketi provalamak."
-        }
+          "text": "Seansın ilk hareketi: önce boş barla 8–10 tekrar, sonra çalışma kilonun yaklaşık dörtte üçüyle 3–5 tekrar."
+        },
+        "effortNote": "Tükenişe gitme; bar göğsünün üzerinde."
       },
       {
         "key": "ua2",
@@ -430,8 +431,63 @@ const PROGRAM = {
 },
 
   exercises: {
+  "smithbench": {
+    "name": "Smith machine bench press",
+    "muscle": "Göğüs",
+    "load": "plate",
+    "sub": "Düz sehpada dumbbell press",
+    "form": [
+      {
+        "label": "Çalışan kaslar",
+        "text": "Göğüs (ana), ön omuz ve triceps (yardımcı)",
+        "steps": []
+      },
+      {
+        "label": "",
+        "text": "Bu hareket, salondaki plakalı göğüs makinesinin yerine kondu. Kas büyümesi açısından aralarında fark beklenmiyor.",
+        "steps": []
+      },
+      {
+        "label": "Smith makinesi nedir",
+        "text": "Barın iki yandaki raylara bağlı olduğu, sadece yukarı aşağı hareket ettiği alet. Barı bileğinle çevirince kancalar raydaki dişlere takılır ya da çıkar. Dengeyi makine sağladığı için serbest bardan kolaydır.",
+        "steps": []
+      },
+      {
+        "label": "Kurulum",
+        "text": "",
+        "steps": [
+          "Düz bir sehpayı Smith makinesinin ortasına yerleştir.",
+          "Sehpaya yat ve boş barı indir. Bar göğsünün ortasına, meme hizasına inmeli. Boyna ya da karna doğru iniyorsa sehpayı ileri geri kaydır.",
+          "Makinenin emniyet durdurucuları varsa, barın göğsüne değdiği noktanın hemen altına ayarla. Kaldıramadığın bir tekrarda bar orada durur.",
+          "Barı omuz genişliğinden bir karış geniş tut. Bar alttayken ön kolların yere dik olmalı."
+        ]
+      },
+      {
+        "label": "Yapılış",
+        "text": "",
+        "steps": [
+          "Kürek kemiklerini geriye ve aşağıya çekip sehpaya bastır, göğsünü yukarı çıkar. Ayaklar yerde sağlam, kalça sehpada.",
+          "Barı yukarı itip bileğinle çevirerek kancadan kurtar.",
+          "2–3 saniyede göğsünün ortasına indir. Bar göğse hafifçe değsin ya da 1–2 santim üstünde dursun.",
+          "Sektirmeden yukarı it. Dirsekler tam kilitlenmeden dur.",
+          "Son tekrardan sonra barı üstte bileğinle çevirip kancaya tak. Takıldığından emin olmadan ellerini bırakma."
+        ]
+      },
+      {
+        "label": "Sık hatalar",
+        "text": "Dirsekleri tam yana açmak (gövdeye göre 45–60 derece olmalı), omuzları kulağa doğru kaldırmak, kalçayı sehpadan kaldırmak, barı göğüste sektirmek, hareketi yarım yapmak.",
+        "steps": []
+      },
+      {
+        "label": "İlk seans için",
+        "text": "Boş barla başla ve kiloyu set set artır. Boş Smith barının ağırlığı makineye göre değişir; defterine sadece taktığın plakaları yaz ve hep aynı makineyi kullan.",
+        "steps": []
+      }
+    ]
+  },
   "chestpress": {
     "name": "Chest press makinesi",
+    "retired": true,
     "muscle": "Göğüs",
     "load": "machine",
     "sub": "Başka bir chest press makinesi ya da Smith makinesinde düz sehpada press",
@@ -464,7 +520,7 @@ const PROGRAM = {
     ]
   },
   "smithincline": {
-    "name": "Smith makinesinde incline press",
+    "name": "Smith machine incline bench press",
     "muscle": "Göğüs",
     "load": "plate",
     "sub": "Eğimli sehpada dumbbell press",
@@ -546,7 +602,7 @@ const PROGRAM = {
     ]
   },
   "seatedrow": {
-    "name": "Oturarak row",
+    "name": "Seated row",
     "muscle": "Sırt",
     "load": "machine",
     "sub": "Diğer row makinesi ya da kablo row",
@@ -611,7 +667,7 @@ const PROGRAM = {
     ]
   },
   "cablelateral": {
-    "name": "Kablo lateral raise",
+    "name": "Cable lateral raise",
     "muscle": "Yan omuz",
     "load": "machine",
     "perSide": true,
@@ -744,7 +800,7 @@ const PROGRAM = {
     ]
   },
   "ohext": {
-    "name": "Baş üstü kablo triceps extension",
+    "name": "Overhead cable triceps extension",
     "muscle": "Triceps",
     "load": "machine",
     "sub": "Otururken tek dumbbell'ı iki elle tutup baş üstü extension",
@@ -877,7 +933,7 @@ const PROGRAM = {
     ]
   },
   "legcurl": {
-    "name": "Oturarak leg curl",
+    "name": "Seated leg curl",
     "muscle": "Arka bacak",
     "load": "machine",
     "sub": "Yatarak leg curl",
@@ -942,7 +998,7 @@ const PROGRAM = {
     ]
   },
   "crunch": {
-    "name": "Yerde crunch",
+    "name": "Crunch",
     "muscle": "Karın (isteğe bağlı)",
     "load": "bodyweight",
     "optional": true,
@@ -980,6 +1036,12 @@ const PROGRAM = {
     ]
   }
 },
+
+  /* Programdan çıkarılmış hareket yuvaları: yeni seanslarda yer almaz; eski kayıtları geçmişte,
+     düzenlemede ve ilerleme listesinde ayrı hareket olarak görünmeye devam eder. */
+  retiredSlots: {
+    UA: [{ key: 'ua1', ex: 'chestpress', sets: 4, reps: [6, 10], effort: 'rir12', rest: 150 }],
+  },
 
   /* Yük azaltma (deload): kilolar aynı, set sayısı yarıya (yukarı yuvarlanır: 4→2, 3→2, 2→1), her set 3 tekrar kala. */
   deload: {

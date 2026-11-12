@@ -6,9 +6,9 @@
    ========================================================= */
 
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
-const PRE_V3_BACKUP_KEY = 'ironlog.backup.pre-v3';
-const DATA_VERSION = 3;
-const APP_VERSION = '4.1.0';
+const DATA_VERSION = 4;
+const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4']; // sürüm geçişlerinden önceki birebir kopyalar
+const APP_VERSION = '4.2.0';
 const WAIST_EVERY_DAYS = 14;
 
 /* Eski programın hareket adları: sadece arşivdeki eski kayıtlara isim vermek için (veri geçişinde kullanılır). */
@@ -59,7 +59,13 @@ const SESSION_TYPES = PROGRAM.rotation;
 const own = (o, k) => (typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined);
 const sessionDef = (type) => own(PROGRAM.sessions, type);
 const exDef = (id) => own(PROGRAM.exercises, id);
-const slotDef = (type, key) => (sessionDef(type) ? sessionDef(type).slots.find((s) => s.key === key) : null);
+/** Hareket yuvası: önce aktif program, yoksa programdan çıkarılmış yuvalar (eski kayıtlar için). */
+const retiredSlots = (type) => own(PROGRAM.retiredSlots || {}, type) || [];
+const slotDef = (type, key) => (sessionDef(type)
+  ? sessionDef(type).slots.find((s) => s.key === key) || retiredSlots(type).find((s) => s.key === key) || null
+  : null);
+/** Kaydın görünen adı her zaman programdaki güncel addan gelir (ad değişince eski kayıtlar da yeni adla görünür). */
+const entryName = (exId, sub, fallback) => { const ex = exDef(exId); return ex ? (sub ? (ex.sub || fallback) : ex.name) : fallback; };
 
 /** Bir setin zorluk hedefi ("1–2 kala", "2 kala", "tükeniş"). */
 function effortFor(slot, j, n, deload) {
@@ -76,7 +82,7 @@ const CHECK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l
 
 function defaultState() {
   return { version: DATA_VERSION, sessions: [], archive: [], current: null, timer: null, body: [], waist: [], migration: null,
-    deloadMode: false, deloadSince: null, exSettings: {}, regressionDismissed: null };
+    deloadMode: false, deloadSince: null, exSettings: {}, regressionDismissed: null, renameReport: null };
 }
 
 function normSet(s) {
@@ -102,7 +108,7 @@ function normEntry(e) {
   return {
     slot: e.slot,
     ex: typeof e.ex === 'string' ? e.ex : '',
-    name: typeof e.name === 'string' ? e.name : (exDef(e.ex) ? exDef(e.ex).name : e.slot),
+    name: entryName(e.ex, !!e.sub, typeof e.name === 'string' ? e.name.slice(0, 120) : e.slot),
     sub: !!e.sub,
     skipped: !!e.skipped,
     sets: e.sets.map(normSet).filter(Boolean),
@@ -144,7 +150,23 @@ function archiveFromOld(s, partial) {
   };
 }
 
-/** Her sürümdeki veriyi (v1, v2, v3) bugünkü biçime getirir. Hiçbir kaydı silmez. */
+/** v3 verisindeki her hareket kaydı için: eski ad → yeni ad ve kayıt sayısı. Kayıtların kendisi değişmez. */
+function buildRenameReport(raw) {
+  const map = new Map();
+  const all = (Array.isArray(raw.sessions) ? raw.sessions : []).concat(raw.current ? [raw.current] : []);
+  all.forEach((s) => (s && Array.isArray(s.entries) ? s.entries : []).forEach((e) => {
+    if (!e || typeof e !== 'object' || typeof e.slot !== 'string' || !Array.isArray(e.sets)) return;
+    const old = typeof e.name === 'string' ? e.name.slice(0, 120) : e.slot;
+    const now = entryName(e.ex, !!e.sub, old);
+    const key = old + '\u0000' + now;
+    const row = map.get(key) || { old, now, n: 0, retired: !!(exDef(e.ex) && exDef(e.ex).retired) };
+    row.n++;
+    map.set(key, row);
+  }));
+  return { at: new Date().toISOString(), dismissed: false, rows: [...map.values()].sort((a, b) => (a.old === a.now) - (b.old === b.now) || a.old.localeCompare(b.old, 'tr')) };
+}
+
+/** Her sürümdeki veriyi (v1, v2, v3, v4) bugünkü biçime getirir. Hiçbir kaydı silmez. */
 function migrate(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('Geçersiz veri');
   const from = Number(raw.version) || 1;
@@ -155,6 +177,16 @@ function migrate(raw) {
 
   if (from >= 3) {
     if (!Array.isArray(raw.sessions)) throw new Error('Yedekte seans listesi yok');
+    // v3 → v4: hareket adları programdan okunur. Hangi kaydın hangi ada bağlandığının dökümü çıkarılır.
+    if (from === 3) st.renameReport = buildRenameReport(raw);
+    else if (raw.renameReport && typeof raw.renameReport === 'object' && Array.isArray(raw.renameReport.rows)) {
+      st.renameReport = {
+        at: typeof raw.renameReport.at === 'string' ? raw.renameReport.at : '',
+        dismissed: !!raw.renameReport.dismissed,
+        rows: raw.renameReport.rows.slice(0, 80).filter((r) => r && typeof r === 'object').map((r) => ({
+          old: String(r.old || '').slice(0, 120), now: String(r.now || '').slice(0, 120), n: Number(r.n) || 0, retired: !!r.retired })),
+      };
+    }
     st.sessions = raw.sessions.map(normSession).filter((s) => s && s.finishedAt).sort((a, b) => a.finishedAt.localeCompare(b.finishedAt));
     st.archive = Array.isArray(raw.archive) ? raw.archive.map((a) => archiveFromOld(a)).filter(Boolean) : [];
     st.current = raw.current ? normSession(raw.current) : null;
@@ -201,7 +233,8 @@ function load() {
     const parsed = JSON.parse(raw);
     if ((Number(parsed.version) || 1) < DATA_VERSION) {
       // Geçişten önceki verinin birebir kopyası (bir kez yazılır, üzerine yazılmaz)
-      try { if (!localStorage.getItem(PRE_V3_BACKUP_KEY)) localStorage.setItem(PRE_V3_BACKUP_KEY, raw); } catch (_) {}
+      const bk = `ironlog.backup.pre-v${DATA_VERSION}`;
+      try { if (!localStorage.getItem(bk)) localStorage.setItem(bk, raw); } catch (_) {}
     }
     const st = migrate(parsed);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(st)); } catch (_) {}
@@ -420,8 +453,24 @@ function renderMigrationBanner() {
     <section class="card migrate">
       <div class="eyebrow">Yeni program</div>
       <p style="margin:6px 0 10px">Uygulama yeni 4 seanslık programa geçti. Eski programın ${m.archived} antrenmanı silinmedi; <b>Geçmiş → Arşiv</b> bölümünde duruyor. Kilo ve bel kayıtların yerinde.</p>
-      <button class="btn" data-act="dl-pre-backup">Geçiş öncesi yedeği indir</button>
+      <button class="btn" data-act="dl-pre-backup" data-key="${latestBackupKey() || ''}">Geçiş öncesi yedeği indir</button>
       <button class="btn ghost" data-act="dismiss-migration">Tamam, gizle</button>
+    </section>`;
+}
+
+function renderRenameReport() {
+  const r = state.renameReport;
+  if (!r || r.dismissed) return '';
+  const total = r.rows.reduce((a, x) => a + x.n, 0);
+  const row = (x) => `<div class="hist-ex"><span>${esc(x.old)}${x.old !== x.now ? ` <span class="muted">→</span> <b>${esc(x.now)}</b>` : (x.retired ? ' <span class="muted small">(programdan çıktı, geçmişte ayrı duruyor)</span>' : ' <span class="muted small">(aynı)</span>')}</span><span class="v">${x.n} kayıt</span></div>`;
+  return `
+    <section class="card migrate" id="renameReport">
+      <div class="eyebrow">Program güncellendi</div>
+      <p style="margin:6px 0 4px">Hareket adları güncellendi. Hiçbir kayıt silinmedi; ${total} hareket kaydının tamamı aşağıdaki adlara bağlı.</p>
+      <p class="muted small" style="margin:0 0 8px">Üst A'nın ilk hareketi artık <b>Smith machine bench press</b>; geçmişi boş başlıyor. Eski chest press kayıtların geçmişte ayrı hareket olarak duruyor.</p>
+      ${r.rows.length ? r.rows.map(row).join('') : '<p class="muted small">Yeni programda henüz kayıt yoktu.</p>'}
+      ${latestBackupKey() ? `<button class="btn" data-act="dl-pre-backup" data-key="${latestBackupKey()}" style="margin-top:10px">Güncelleme öncesi yedeği indir</button>` : ''}
+      <button class="btn ghost" data-act="dismiss-rename">Tamam, gizle</button>
     </section>`;
 }
 
@@ -479,6 +528,7 @@ function renderHome() {
       <div class="brand-sub">${esc(PROGRAM.name)}</div>
     </header>
     ${renderMigrationBanner()}
+    ${renderRenameReport()}
     ${backupDue() ? `<button class="backup-hint" data-act="go-backup">💾 Son yedeğin üzerinden 14 günden fazla geçti. <b>Yedek al</b></button>` : ''}
     ${renderSummary()}
     ${state.current ? renderResume() : ''}
@@ -1122,11 +1172,12 @@ function renderSettings() {
       <p class="muted small">${state.lastBackupAt ? `Son yedek: ${fmtDate(state.lastBackupAt, true)}.` : 'Henüz bu cihazdan yedek alınmadı.'}</p>
       <p class="muted small" style="margin-bottom:0">${state.sessions.length} seans${state.current ? ' + 1 devam eden' : ''} · ${state.archive.length} arşiv · ${state.body.length} kilo · ${state.waist.length} bel kaydı.</p>
     </section>
-    ${hasPreBackup() ? `
+    ${backupKeys().length ? `
     <section class="card">
-      <h2>Geçiş öncesi yedek</h2>
-      <p class="muted small">Yeni programa geçmeden önceki verinin birebir kopyası.</p>
-      <button class="btn" data-act="dl-pre-backup">İndir</button>
+      <h2>Güncelleme öncesi yedekler</h2>
+      <p class="muted small">Uygulamanın veri biçimi her değiştiğinde, değişiklikten önceki verinin birebir kopyası bu telefonda saklanır.</p>
+      ${backupKeys().map((k) => `<button class="btn" data-act="dl-pre-backup" data-key="${k}">${k === BACKUP_KEYS[0] ? '4 seanslık programa geçiş öncesi' : 'Hareket adları güncellemesi öncesi'} – indir</button>`).join('')}
+      ${state.renameReport && state.renameReport.dismissed ? '<button class="btn ghost" data-act="show-rename">Ad eşleştirme dökümünü göster</button>' : ''}
     </section>` : ''}
     ${standalone ? '' : `
     <section class="card">
@@ -1141,9 +1192,10 @@ function renderSettings() {
     <p class="muted small" style="text-align:center">IronLog ${APP_VERSION}</p>`;
 }
 
-function hasPreBackup() {
-  try { return !!localStorage.getItem(PRE_V3_BACKUP_KEY); } catch (_) { return false; }
+function backupKeys() {
+  return BACKUP_KEYS.filter((k) => { try { return !!localStorage.getItem(k); } catch (_) { return false; } });
 }
+const latestBackupKey = () => backupKeys().slice(-1)[0] || null;
 
 /* ---------------- Takip: kilo ve bel ---------------- */
 
@@ -1278,8 +1330,10 @@ function progressOptions() {
   const out = [];
   Object.keys(PROGRAM.exercises).forEach((id) => {
     const slots = [];
-    PROGRAM.rotation.forEach((t) => sessionDef(t).slots.forEach((sl) => { if (sl.ex === id) slots.push({ type: t, key: sl.key, reps: sl.reps }); }));
-    if (slots.length) out.push({ id, slots });
+    PROGRAM.rotation.forEach((t) => sessionDef(t).slots.concat(retiredSlots(t)).forEach((sl) => { if (sl.ex === id) slots.push({ type: t, key: sl.key, reps: sl.reps }); }));
+    // Programdan çıkmış hareket yalnızca kaydı varsa listelenir
+    const used = !PROGRAM.exercises[id].retired || state.sessions.some((s) => s.entries.some((e) => e.ex === id));
+    if (slots.length && used) out.push({ id, slots });
   });
   return out;
 }
@@ -1309,7 +1363,7 @@ function renderProgress() {
       <h2>Hareket ilerlemesi</h2>
       <p class="muted small" style="margin:4px 0 10px">Her seansın en iyi seti (kilo × tekrar), eskiden yeniye. Seans türleri ayrı; yük azaltma ve yedek hareket kayıtları hariç.</p>
       <select id="progEx" class="text-in" aria-label="Hareket seç">
-        ${opts.map((o) => `<option value="${o.id}" ${o.id === sel.id ? 'selected' : ''}>${esc(exDef(o.id).name)}</option>`).join('')}
+        ${opts.map((o) => `<option value="${o.id}" ${o.id === sel.id ? 'selected' : ''}>${esc(exDef(o.id).name)}${exDef(o.id).retired ? ' (programdan çıktı)' : ''}</option>`).join('')}
       </select>
       ${lists}
     </section>`;
@@ -1710,12 +1764,13 @@ async function exportData() {
   }
 }
 
-function downloadPreBackup() {
+function downloadPreBackup(key) {
+  const k = BACKUP_KEYS.includes(key) ? key : latestBackupKey();
   let raw = null;
-  try { raw = localStorage.getItem(PRE_V3_BACKUP_KEY); } catch (_) {}
-  if (!raw) { toast('Geçiş öncesi yedek bulunamadı'); return; }
+  try { raw = k && localStorage.getItem(k); } catch (_) {}
+  if (!raw) { toast('Güncelleme öncesi yedek bulunamadı'); return; }
   let data; try { data = JSON.parse(raw); } catch (_) { data = raw; }
-  saveFile(JSON.stringify({ app: 'ironlog', version: data.version || 1, exportedAt: new Date().toISOString(), note: 'Yeni programa geçiş öncesi yedek', data }, null, 2), `ironlog-gecis-oncesi-yedek-${fileStamp()}.json`);
+  saveFile(JSON.stringify({ app: 'ironlog', version: data.version || 1, exportedAt: new Date().toISOString(), note: 'Güncelleme öncesi yedek (' + k + ')', data }, null, 2), `ironlog-guncelleme-oncesi-yedek-v${data.version || 1}-${fileStamp()}.json`);
 }
 
 function importData(file) {
@@ -1728,6 +1783,7 @@ function importData(file) {
       const msg = `Yedekte ${next.sessions.length} seans, ${next.archive.length} arşiv kaydı, ${next.body.length} kilo ve ${next.waist.length} bel kaydı var.\n\nBu telefondaki mevcut veriler yedektekiyle DEĞİŞTİRİLSİN mi?`;
       if (!confirm(msg)) return;
       if (next.migration) next.migration.dismissed = true;
+      if (next.renameReport) next.renameReport.dismissed = true;
       next.timer = null; // yedekteki eski sayaç geri gelmesin
       state = next;
       ui.typeChoice = null; ui.summary = null; ui.inWorkout = false; ui.editId = null; ui.editBackup = null; ui.open.clear();
@@ -1893,7 +1949,13 @@ document.addEventListener('click', (ev) => {
       }
       break;
     }
-    case 'dl-pre-backup': downloadPreBackup(); break;
+    case 'dl-pre-backup': downloadPreBackup(el.dataset.key); break;
+    case 'dismiss-rename':
+      if (state.renameReport) { state.renameReport.dismissed = true; save(); render(); }
+      break;
+    case 'show-rename':
+      if (state.renameReport) { state.renameReport.dismissed = false; save(); ui.tab = 'train'; render(); window.scrollTo(0, 0); }
+      break;
     case 'dismiss-migration':
       if (state.migration) { state.migration.dismissed = true; save(); render(); }
       break;
