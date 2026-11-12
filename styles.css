@@ -466,3 +466,9 @@ select.text-in { -webkit-appearance: none; appearance: none; font-weight: 700; b
   .fx-lbl { margin: 0; text-align: left; font-size: 11px; letter-spacing: .04em; }
   .fx-set .stepper { grid-template-columns: 52px 1fr 52px; }
 }
+
+/* ---- Süperseti ayırma, hazır gelen tekrar ---- */
+.ss-split { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); }
+.ss-split .muted { margin-top: 4px; }
+.fx-more .ss-split { margin-bottom: 10px; }
+.stepper input.pre { color: var(--dim); font-style: italic; font-weight: 600; }
