@@ -8,7 +8,7 @@
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
 const DATA_VERSION = 4;
 const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4']; // sürüm geçişlerinden önceki birebir kopyalar
-const APP_VERSION = '4.8.0';
+const APP_VERSION = '4.9.0';
 const LATE_FINISH_MS = 30 * 60000;      // son setten bu kadar sonra bitirilirse bitiş zamanı son set sayılır
 const WAIST_EVERY_DAYS = 14;
 
@@ -460,9 +460,14 @@ const ui = {
 
 /* ---------------- Render ---------------- */
 
+let lastScreen = null;
 function render() {
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === ui.tab));
   const app = $('#app');
+  // Hafif geçiş yalnızca ekran değişince (her yeniden çizimde değil)
+  const screen = `${ui.tab}|${ui.tab === 'train' && state.current && ui.inWorkout ? 'w' : ''}|${ui.editId || ''}`;
+  if (lastScreen !== null && screen !== lastScreen) { app.classList.remove('enter'); void app.offsetWidth; app.classList.add('enter'); }
+  lastScreen = screen;
   if (ui.tab === 'history') app.innerHTML = ui.editId ? renderWorkout() : renderHistory();
   else if (ui.tab === 'track') app.innerHTML = renderTrack();
   else if (ui.tab === 'settings') app.innerHTML = renderSettings();
@@ -733,7 +738,7 @@ function focusStrip(sess, i, j) {
   return e.sets.map((s, k) => {
     // İnce şerit: yapılan set "✓ 8", şimdiki "Set 2", kalanlar sıra numarası
     const v = s.done ? `${CHECK_SVG}<span>${s.r == null ? '–' : s.r}</span>` : (k === j ? `<span>Set ${k + 1}</span>` : `<span>${k + 1}</span>`);
-    return `<button class="fx-chip${s.done ? ' done' : ''}${k === j ? ' cur' : ''}" data-act="focus-set" data-slot="${esc(e.slot)}" data-set="${k}" aria-label="Set ${k + 1}${s.done ? `: ${bw ? '' : fmt(s.w) + ' kg × '}${s.r} tekrar, düzelt` : ''}">${v}</button>`;
+    return `<button class="fx-chip${s.done ? ' done' : ''}${k === j ? ' cur' : ''}${s.done && isJust(e, k) ? ' just' : ''}" data-act="focus-set" data-slot="${esc(e.slot)}" data-set="${k}" aria-label="Set ${k + 1}${s.done ? `: ${bw ? '' : fmt(s.w) + ' kg × '}${s.r} tekrar, düzelt` : ''}">${v}</button>`;
   }).join('');
 }
 
@@ -1138,18 +1143,18 @@ function sessionSummary(sess) {
 function renderSummary() {
   const s = ui.summary;
   if (!s) return '';
+  const rows = s.improved.map((x) => { const k = x.indexOf(': '); return `<div class="sum-row">${ICON.up}<span class="nm">${esc(k > 0 ? x.slice(0, k) : x)}</span><b>${esc(k > 0 ? x.slice(k + 2) : '')}</b></div>`; }).join('');
   return `
     <section class="card summary">
-      <div class="eyebrow">Seans bitti</div>
-      <h2 style="margin-top:4px">${esc(s.name)}</h2>
-      <div class="stat-row">
-        <div class="stat"><b>${esc(s.minutes)}</b><span>Süre</span></div>
-        <div class="stat"><b>${s.sets}</b><span>Set</span></div>
-        <div class="stat accent"><b>${s.improved.length}</b><span>Artan</span></div>
+      <div class="sum-top"><span class="sum-check">${CHECK_SVG}</span><div><div class="eyebrow">Seans bitti</div><h2>${esc(s.name)}</h2></div></div>
+      <div class="sum-stats">
+        <div><b>${esc(String(s.minutes).replace(' dk', ''))}</b><span>dakika</span></div>
+        <div><b>${s.sets}</b><span>set</span></div>
+        <div><b>${s.improved.length}</b><span>artan hareket</span></div>
       </div>
-      ${s.late ? `<p class="muted small" style="margin:10px 0 0">${esc(s.late)}</p>` : ''}
-      ${s.improved.length ? `<ul class="bullets plain">${s.improved.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : '<p class="muted small" style="margin:10px 0 0">Geçen sefere göre artan hareket yok ya da bu seansın ilk kaydı.</p>'}
-      <button class="btn ghost" data-act="close-summary" style="margin-top:10px">Tamam</button>
+      ${s.late ? `<p class="muted small" style="margin:12px 0 0">${esc(s.late)}</p>` : ''}
+      ${s.improved.length ? `<h3 class="sub">Geçen sefere göre artanlar</h3>${rows}` : '<p class="muted small" style="margin:12px 0 0">Geçen sefere göre artan hareket yok ya da bu seansın ilk kaydı.</p>'}
+      <button class="btn ghost" data-act="close-summary" style="margin-top:14px">Tamam</button>
     </section>`;
 }
 
@@ -1767,6 +1772,8 @@ function clearUndo() {
   const t = $('#toast'); if (t) t.hidden = true;
 }
 
+const isJust = (e, j) => !!(ui.just && ui.just.e === e && ui.just.j === j && Date.now() - ui.just.t < 600);
+
 function setRowRefresh(i, j, force) {
   // Tek bir seti ve ilerleme çubuğunu yerinde günceller (sayfa kaymasın diye tam yenileme yapmaz)
   const sess = activeSess();
@@ -1775,6 +1782,7 @@ function setRowRefresh(i, j, force) {
   if (!row) { if (focusActive()) { refreshFocusStrip(); refreshProgress(); return; } render(); return; }
   const s = sess.entries[i].sets[j];
   row.classList.toggle('done', s.done);
+  row.classList.toggle('just', isJust(sess.entries[i], j));
   const card = document.getElementById(`ex-${i}`);
   if (card) card.classList.toggle('all-done', sess.entries[i].sets.every((x) => x.done));
   const wu = document.getElementById(`warm-${i}`);
@@ -1814,6 +1822,7 @@ function toggleSet(i, j) {
   const prevR = s.r;
   if (s.r == null) s.r = s.pr ?? sl.reps[0];
   s.done = true;
+  ui.just = { e, j, t: Date.now() }; // kısa "tamamlandı" animasyonu için
   if (live) sess.lastAt = new Date().toISOString(); // son tamamlanan setin zamanı
   save();
   setRowRefresh(i, j);
@@ -1825,7 +1834,7 @@ function toggleSet(i, j) {
     stopTimer();
     toastUndo(`Dinlenmeden: ${sess.entries[partner].name}`, undo);
     const card = document.getElementById('ex-' + partner);
-    if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (card && card.scrollIntoView) card.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
     return;
   }
   startTimer(sl.rest, `${e.sub ? ex.sub : ex.name}${partner != null ? ' (süperset)' : ''} · dinlenme`);
@@ -2172,7 +2181,13 @@ document.addEventListener('click', (ev) => {
     case 'toggle': {
       const k = el.dataset.key;
       ui.open.has(k) ? ui.open.delete(k) : ui.open.add(k);
-      render(); break;
+      {
+        const y = window.scrollY; // kutu açılıp kapanırken sayfa yerinden oynamasın
+        render();
+        const app = $('#app'); app.classList.remove('opening'); void app.offsetWidth; app.classList.add('opening');
+        window.scrollTo(0, y);
+      }
+      break;
     }
     case 'finish':
       if (cur) finishWorkout(); break;

@@ -586,3 +586,44 @@ body.sheet-open { overflow: hidden; }
 .opt-label .chev { font-style: normal; }
 .hero .infobox { margin-bottom: 4px; }
 .hero > .muted.small { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 0 !important; }
+
+/* ---- Aşama 6: his ---- */
+/* Set tamamlanınca: tik çizilir, çip dolar (≤ 280 ms) */
+@keyframes il-draw { from { stroke-dashoffset: 26; } to { stroke-dashoffset: 0; } }
+@keyframes il-pop { 0% { transform: scale(.86); opacity: .4; } 70% { transform: scale(1.04); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes il-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes il-open { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes il-sheet { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes il-back { from { opacity: 0; } to { opacity: 1; } }
+.set2.just .chk svg path, .fx-chip.just svg path { stroke-dasharray: 26; animation: il-draw .26s ease-out both; }
+.set2.just .chk, .fx-chip.just { animation: il-pop .28s ease-out both; }
+/* Ekran geçişi ve açılan kutular */
+#app.enter { animation: il-fade .18s ease-out both; }
+#app.opening .infobox, #app.opening .fx-more, #app.opening .fx-sug-more, #app.opening .rules { animation: il-open .18s ease-out both; }
+.sheet { animation: il-sheet .22s cubic-bezier(.2, .8, .2, 1) both; }
+.sheet-back { animation: il-back .18s ease-out both; }
+@keyframes il-toast { from { opacity: 0; } to { opacity: 1; } }
+.toast:not([hidden]) { animation: il-toast .16s ease-out both; }
+.btn, .seg button, .pillseg button, .fx-chip, .switch { transition: background-color .15s, border-color .15s, color .15s, transform .1s; }
+
+/* Seans özeti */
+.summary { padding: 18px 16px; }
+.sum-top { display: flex; align-items: center; gap: 12px; }
+.sum-top h2 { font-size: 24px; margin-top: 2px; }
+.sum-check { width: 44px; height: 44px; border-radius: 50%; background: var(--ok); display: flex; align-items: center; justify-content: center; flex: none; }
+.sum-check svg { width: 24px; height: 24px; fill: none; stroke: var(--ok-ink); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.sum-stats { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 16px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.sum-stats > div { padding: 12px 4px; text-align: center; }
+.sum-stats > div + div { border-left: 1px solid var(--line); }
+.sum-stats b { display: block; font-size: 34px; font-weight: 850; line-height: 1; font-variant-numeric: tabular-nums; }
+.sum-stats span { display: block; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.sum-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.sum-row .ico { color: var(--ok); }
+.sum-row .nm { flex: 1; min-width: 0; font-weight: 650; }
+.sum-row b { color: var(--ok); font-weight: 750; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.summary h3.sub + .sum-row { border-top: 0; }
+
+/* Telefonda "hareketi azalt" açıksa animasyon ve geçiş yok */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

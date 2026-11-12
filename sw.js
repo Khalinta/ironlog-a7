@@ -1,6 +1,6 @@
 /* IronLog service worker: uygulamayı internetsiz çalıştırır.
    Uygulama dosyalarını HER değiştirdiğinde CACHE sürümünü artır; yoksa telefonlar güncellemeyi almaz. */
-const CACHE = 'ironlog-v16';
+const CACHE = 'ironlog-v17';
 const ASSETS = [
   './',
   './index.html',
