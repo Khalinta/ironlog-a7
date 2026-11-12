@@ -8,7 +8,7 @@
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
 const DATA_VERSION = 4;
 const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4']; // sürüm geçişlerinden önceki birebir kopyalar
-const APP_VERSION = '4.11.0';
+const APP_VERSION = '4.12.0';
 const LATE_FINISH_MS = 30 * 60000;      // son setten bu kadar sonra bitirilirse bitiş zamanı son set sayılır
 const WAIST_EVERY_DAYS = 14;
 
@@ -790,7 +790,7 @@ function focusListHtml(sess, cur) {
     if (e.skipped) {
       return `<div class="fx-row skipped${ss}"><span class="n">${num}</span><span class="nm">${esc(e.name)}<small>Bugün atlandı</small></span><button class="btn ghost mini" data-act="skip" data-ex="${k}">Geri al</button></div>`;
     }
-    const sub = [e.sub ? 'Yedek' : '', inSS ? `Süperset ${sl.ssPos}/2` : '', sl.optional ? 'İsteğe bağlı' : ''].filter(Boolean).join(' · ');
+    const sub = [e.sub ? 'Yedek' : '', inSS ? `Süperset ${sl.ssPos}/2` : '', sl.optional ? 'İsteğe bağlı' : '', topLineOn(sess, e) ? 'Üst sınırda: gelecek sefer kiloyu artır' : ''].filter(Boolean).join(' · ');
     return `<button class="fx-row${cur && cur.i === k ? ' on' : ''}${n && d === n ? ' done' : ''}${ss}" data-act="focus-ex" data-slot="${esc(e.slot)}"><span class="n">${num}</span><span class="nm">${esc(e.name)}${sub ? `<small>${sub}</small>` : ''}</span><span class="c">${d}/${n}</span></button>`;
   }).join('');
   const manual = ui.focusSlot || ui.focusSet;
@@ -876,9 +876,11 @@ function renderFocus(sess, cur) {
           <div class="fx-field"><span class="fx-lbl">${p.ex.perSide ? 'tekrar / kol' : 'tekrar'}</span>${stepper(i, j, 'r', s.r, `Set ${j + 1} tekrar`, !s.rt)}</div>
         </div>
         ${plateLine(e, i, j)}
+        ${repBar(sess, e, i, j)}
         ${action}
       </div>
       <div class="fx-strip" id="fx-strip" data-ex="${i}" data-set="${j}">${focusStrip(sess, i, j)}</div>
+      ${sess.deload ? '' : `<div class="top-line" id="top-${i}"${topLineOn(sess, e) ? '' : ' hidden'}>${ICON.up} ${TOP_LINE}</div>`}
       ${s.done ? '' : `<div class="fx-next" id="fx-next">${focusNextHtml(sess, cur)}</div>`}
       ${manual && !s.done ? '<button class="btn ghost mini fx-auto" data-act="focus-auto">Otomatik sıraya dön</button>' : ''}
       <button class="fx-more-btn" data-act="toggle" data-key="${moreKey}" aria-expanded="${moreOpen}"><span>Daha fazla</span><span class="muted small">form, alet doluysa, ayar</span><i class="chev">${moreOpen ? '−' : '+'}</i></button>
@@ -975,6 +977,63 @@ function stepper(i, j, f, value, label, pre) {
       <input class="${pre ? 'pre' : ''}" data-ex="${i}" data-set="${j}" data-f="${f}" type="text" inputmode="${f === 'w' ? 'decimal' : 'numeric'}" ${f === 'r' ? 'pattern="[0-9]*"' : ''} autocomplete="off" value="${value == null ? '' : (f === 'w' ? fmt(value) : value)}" placeholder="–" aria-label="${label}">
       <button class="sbtn" data-act="step" data-ex="${i}" data-set="${j}" data-f="${f}" data-d="1" aria-label="${label} artır">${PLUS_SVG}</button>
     </div>`;
+}
+
+/* ---------------- Tekrar aralığı çubuğu ---------------- */
+
+const TOP_LINE = 'Bütün setler üst sınırda: gelecek sefer kiloyu artır.';
+
+/** Hareketin bütün setleri tamam ve hepsi üst sınırda mı (gelecek seansın "kiloyu artır" önerisiyle aynı kural). */
+function entryAtTop(sess, e) {
+  const sl = slotDef(sess.type, e.slot);
+  return !!sl && !sess.deload && !e.skipped && allAtTop(e, topThreshold(sl));
+}
+/** Kart satırı yalnızca kilo artırılabilen hareketlerde çıkar (vücut ağırlığında öneri de yok). */
+const topLineOn = (sess, e) => entryAtTop(sess, e) && exDef(e.ex).load !== 'bodyweight';
+
+/** Çubuğun durumu. Konum: 0 = alt sınır, 1 = üst sınır (büyük adım açıksa üst + 2); -1 = aralığın altında, 2 = üstünde. */
+function repBarState(sess, e, j) {
+  const sl = slotDef(sess.type, e.slot);
+  const s = e.sets[j];
+  const lo = sl.reps[0], hi = topThreshold(sl);
+  const pos = (r) => (typeof r !== 'number' ? null : r < lo ? -1 : r > hi ? 2 : hi === lo ? 1 : (r - lo) / (hi - lo));
+  const sameW = (s.lw == null ? null : s.lw) === (s.w == null ? null : s.w);
+  return {
+    lo, hi, p: pos(s.r), done: !!s.done,
+    last: s.lr != null && sameW ? pos(s.lr) : null,           // geçen seferki tekrar; kilo farklıysa gösterilmez
+    active: !s.done && e.sets.findIndex((x) => !x.done) === j, // sıradaki set
+    top: entryAtTop(sess, e),
+  };
+}
+
+const rbLeft = (p) => (p === -1 ? 'calc(0% - 12px)' : p === 2 ? 'calc(100% + 12px)' : `${Math.round(p * 1000) / 10}%`);
+const rbFill = (st) => (st.done && st.p != null ? `${Math.max(0, Math.min(1, st.p)) * 100}%` : '0%');
+const rbClass = (st) => `rb${st.done ? ' done' : ''}${st.active ? ' active' : ''}${st.top ? ' top' : ''}`;
+
+function repBar(sess, e, i, j) {
+  if (sess.deload || ui.editId) return '';
+  const st = repBarState(sess, e, j);
+  return `<div class="${rbClass(st)}" id="rb-${i}-${j}" aria-hidden="true"><span class="rb-n">${st.lo}</span><div class="rb-track"><div class="rb-fill" style="width:${rbFill(st)}"></div><i class="rb-last" style="left:${rbLeft(st.last == null ? 0 : st.last)}"${st.last == null ? ' hidden' : ''}></i><i class="rb-dot${st.p === -1 ? ' low' : ''}" style="left:${rbLeft(st.p == null ? 0 : st.p)}"${st.p == null ? ' hidden' : ''}></i></div><span class="rb-n">${st.hi}</span></div>`;
+}
+
+/** Hareketin çubuklarını ve "üst sınırda" satırını sayfayı yenilemeden günceller (nokta kayarak yer değiştirir). */
+function refreshRepBars(i) {
+  const sess = activeSess();
+  const e = sess && sess.entries[i];
+  if (!e) return;
+  e.sets.forEach((_, j) => {
+    const el = document.getElementById(`rb-${i}-${j}`);
+    if (!el) return;
+    const st = repBarState(sess, e, j);
+    el.className = rbClass(st);
+    el.querySelector('.rb-fill').style.width = rbFill(st);
+    const last = el.querySelector('.rb-last'), dot = el.querySelector('.rb-dot');
+    last.hidden = st.last == null; if (st.last != null) last.style.left = rbLeft(st.last);
+    dot.hidden = st.p == null; if (st.p != null) dot.style.left = rbLeft(st.p);
+    dot.classList.toggle('low', st.p === -1);
+  });
+  const tl = document.getElementById(`top-${i}`);
+  if (tl) tl.hidden = !topLineOn(sess, e);
 }
 
 /* ---------------- Anlık rekor ---------------- */
@@ -1216,6 +1275,7 @@ function renderExercise(sess, e, i, parts) {
         ${stepper(i, j, 'r', s.r, `Set ${j + 1} tekrar`, live && !s.rt)}
       </div>
       ${plateLine(e, i, j)}
+      ${repBar(sess, e, i, j)}
     </div>`;
   }).join('');
 
@@ -1285,6 +1345,7 @@ function renderExercise(sess, e, i, parts) {
         <div class="set2-head ${bodyweight ? 'bw' : ''}">${bodyweight ? '' : `<span>kg <small>(±${fmt(weightStep(e.ex))})</small></span>`}<span>${ex.perSide ? 'tekrar / kol' : 'tekrar'}</span></div>
         ${sets}
       </div>
+      ${live && !sess.deload ? `<div class="top-line" id="top-${i}"${topLineOn(sess, e) ? '' : ' hidden'}>${ICON.up} ${TOP_LINE}</div>` : ''}
       ${sl.optional && live ? `<button class="btn ghost mini" data-act="skip" data-ex="${i}" style="margin-top:10px">Bugün atla</button>` : ''}
       <div class="toggles" style="grid-template-columns:repeat(${toggles.length},1fr)">${toggles.join('')}</div>
       ${ui.open.has(formKey) && !e.sub ? `<div class="infobox"><strong>Form</strong>${renderForm(ex)}</div>` : ''}
@@ -1993,6 +2054,7 @@ function setRowRefresh(i, j, force) {
     if (inp && f === 'r') inp.classList.toggle('pre', !ui.editId && !s.rt);
   });
   refreshRecords(i);
+  refreshRepBars(i);
   refreshProgress();
   if (focusActive()) refreshFocusStrip();
 }
@@ -2486,6 +2548,7 @@ document.addEventListener('input', (ev) => {
   save();
   if (inp.dataset.f === 'w') refreshWeightInfo(Number(inp.dataset.ex), Number(inp.dataset.set));
   refreshRecords(Number(inp.dataset.ex));
+  refreshRepBars(Number(inp.dataset.ex));
   if (focusActive()) refreshFocusStrip();
 });
 
