@@ -24,6 +24,25 @@ ekranlar bu dosyadan üretilir. Form ipuçları, yedek hareketler, haftalık set
 - Veriyi dışa / içe aktarma (JSON), 14 günde bir yedek hatırlatması. Eski programın kayıtları "Arşiv" olarak saklanır.
 - Seans ekranında iki görünüm: "Odak" (sadece sıradaki set, büyük "Seti tamamla" düğmesi, otomatik ilerleme) ve "Tüm seans" (bütün hareketlerin listesi).
 - Hareket başına ağırlık adımı: "Ayar" kutusundan o makinede artı/eksinin kaç kg değiştireceği ayarlanır.
+- Plaka hesaplayıcı (plakayla yüklenen hareketler: Smith machine bench press, Smith machine incline bench press, Leg press): kilo kutusunun altında "Her yana: 20 + 5 + 2,5" satırı. "Ayar" kutusunda boş bar / kızak ağırlığı ve salondaki plakalar (20, 15, 10, 5, 2,5, 1,25) kalıcı olarak ayarlanır. Bar ağırlığı girildiyse yazılan kilo toplam sayılır: her yana (kilo − bar) ÷ 2; boşsa yazılan kilo sadece plakalardır: her yana kilo ÷ 2. Tam tutmuyorsa en yakın alt birleşim ve eksik miktar gösterilir. Isınma kiloları da aynı hesapla verilir. Eski kayıtlar dönüştürülmez.
+- Anlık rekor: bir set tamamlanınca aynı hareketin (yedek ayrı) önceki seanslardaki ve bu seanstaki bütün tamamlanmış setleriyle kıyaslanır; yük azaltma seansları sayılmaz. Rekor = o güne kadarki en yüksek kilo ya da bu kiloda veya daha ağırında yapılmış en çok tekrardan fazlası (vücut ağırlığında: tek sette en çok tekrar). Hareketin önceki seanslarda kaydı yoksa rekor olmaz. Set satırında, odak şeridinde, bildirimde, seans özetinde ve Geçmiş'te "Rekor" olarak görünür. Kaydedilmez; her seferinde geçmişten hesaplanır.
+- Tekrar aralığı çubuğu: her setin altında sol ucu alt, sağ ucu üst tekrar sınırı olan ince çubuk (büyük ağırlık adımı açıksa sağ uç üst sınır + 2). Dolu nokta bugünkü tekrar, içi boş işaret geçen seferki tekrardır (kilo farklıysa gizlenir). Bütün setler üst sınırdaysa kartta "gelecek sefer kiloyu artır" satırı çıkar; kural, sonraki seansın artırma önerisiyle aynıdır. Yük azaltma seansında ve düzenleme modunda gösterilmez.
+- Kilo eğilimi (Takip, "Günlük" görünüm): günlük noktaların üzerine yumuşatılmış eğilim çizgisi ve "Son 4 hafta: haftada −0,5 kg" satırı. Açma/kapama tercihi yedeğe girmeyen `ironlog.chart` anahtarında tutulur.
+
+## Kilo eğilimi nasıl hesaplanır
+Yöntem: üstel hareketli ortalama (EMA). Günlük katsayı **α = 0,2** (yaklaşık 9 günlük ortalamaya denk; `app.js` içinde `TREND_ALPHA`).
+
+- İlk kayıtta eğilim = o günün kilosu.
+- Sonraki her kayıtta: `eğilim = eğilim + k × (kilo − eğilim)`, `k = 1 − (1 − α)^g`; `g` bir önceki kayıttan bu yana geçen gün sayısıdır.
+  Art arda günlerde `k = 0,2`; arada kayıtsız günler varsa `k` büyür (3 gün için 0,49), yani eksik günler hesabı bozmaz.
+- Eğilim her zaman bütün kayıtlardan hesaplanır; grafikte seçilen aralık yalnızca gösterimi süzer.
+- "Son 4 hafta" satırı: son 28 gündeki ilk ve son kaydın eğilim değerleri arasındaki fark, aradaki gün sayısına bölünüp 7 ile çarpılır.
+  Bu aralıkta 6'dan az kayıt varsa ya da kayıtlar en az 14 güne yayılmamışsa "Eğilim için birkaç hafta daha kayıt gerekiyor" yazar.
+
+## Hareket ayarı alanları
+`exSettings[hareket]` = `{ bigStep, note, step, bar, plates }`. Bütün alanlar tek bir fonksiyonda (`normCfg`) tanımlıdır;
+açılışta (`migrate`), yedekten geri yüklemede ve her kayıtta aynı fonksiyon kullanılır. Yeni alan eklenecekse yalnızca oraya eklenir,
+yoksa uygulama açılışta o alanı siler. `bar` boşsa `null`, bütün plakalar açıksa `plates` `null` olur. Veri sürümü değişmedi (4).
 
 ## Dosyalar
 - `index.html`, `styles.css`, `app.js` – uygulama

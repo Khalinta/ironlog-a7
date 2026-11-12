@@ -667,3 +667,11 @@ body.sheet-open { overflow: hidden; }
 .top-line { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--ok-line); background: var(--ok-bg); color: var(--text); font-size: 14px; font-weight: 650; }
 .top-line[hidden] { display: none; }
 .top-line .ico { color: var(--ok); flex: none; }
+
+/* Kilo eğilimi */
+.c-pt.dim { stroke: var(--dim); stroke-width: 1.5; }
+.c-line.trend { stroke: var(--text); stroke-width: 2.5; stroke-dasharray: none; }
+.c-legend i.dim { width: 8px; height: 8px; border: 1.5px solid var(--dim); border-radius: 50%; }
+.c-legend i.trend { border-top: 2.5px solid var(--text); }
+.trend-sw { min-height: 44px; font-size: 14px; font-weight: 650; color: var(--text2); padding: 0 2px; }
+.trend-info { margin: 2px 2px 8px; font-size: 14px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }

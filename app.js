@@ -8,7 +8,7 @@
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
 const DATA_VERSION = 4;
 const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4']; // sürüm geçişlerinden önceki birebir kopyalar
-const APP_VERSION = '4.12.0';
+const APP_VERSION = '4.13.0';
 const LATE_FINISH_MS = 30 * 60000;      // son setten bu kadar sonra bitirilirse bitiş zamanı son set sayılır
 const WAIST_EVERY_DAYS = 14;
 
@@ -1547,7 +1547,7 @@ const CHART_KEY = 'ironlog.chart';   // görünüm tercihi; yedeğe girmez
 function loadChartPrefs() {
   let p = {};
   try { p = JSON.parse(localStorage.getItem(CHART_KEY) || '{}') || {}; } catch (_) {}
-  return { mode: p.mode === 'weekly' ? 'weekly' : 'daily', range: ['1m', '3m', 'all'].includes(p.range) ? p.range : '3m' };
+  return { mode: p.mode === 'weekly' ? 'weekly' : 'daily', range: ['1m', '3m', 'all'].includes(p.range) ? p.range : '3m', trend: p.trend !== false };
 }
 function saveChartPrefs(p) { try { localStorage.setItem(CHART_KEY, JSON.stringify(p)); } catch (_) {} }
 
@@ -1586,14 +1586,16 @@ function lineChart(id, series, o = {}) {
   const pts = [];
   const dense = all.length > 45;
   const lines = series.map((s, si) => {
+    // Seri seçenekleri: cls (ek sınıf), noLine (yalnız noktalar), noPts (yalnız çizgi; dokunulamaz)
     const p = s.points.map((q) => ({ x: f1(X(q.t)), y: f1(Y(q.v)), tip: q.tip }));
-    p.forEach((q) => pts.push(q));
-    return `${p.length > 1 ? `<polyline class="c-line s${si}" points="${p.map((q) => `${q.x},${q.y}`).join(' ')}"/>` : ''}
-      ${p.map((q) => `<circle class="c-pt s${si}" cx="${q.x}" cy="${q.y}" r="${dense ? 2 : 3}"/>`).join('')}`;
+    const cls = `s${si}${s.cls ? ' ' + s.cls : ''}`;
+    if (!s.noPts) p.forEach((q) => pts.push(q));
+    return `${p.length > 1 && !s.noLine ? `<polyline class="c-line ${cls}" points="${p.map((q) => `${q.x},${q.y}`).join(' ')}"/>` : ''}
+      ${s.noPts ? '' : p.map((q) => `<circle class="c-pt ${cls}" cx="${q.x}" cy="${q.y}" r="${dense ? 2 : 3}"/>`).join('')}`;
   }).join('');
   charts[id] = { W, H, pts };
 
-  const legend = series.length > 1 ? `<div class="c-legend">${series.map((s, si) => `<span><i class="s${si}"></i>${esc(s.name)}</span>`).join('')}</div>` : '';
+  const legend = series.length > 1 ? `<div class="c-legend">${series.map((s, si) => `<span><i class="s${si}${s.cls ? ' ' + s.cls : ''}"></i>${esc(s.name)}</span>`).join('')}</div>` : '';
   return `
     <div class="chart">
       ${legend}
@@ -1623,25 +1625,62 @@ function chartTap(svg, ev) {
 
 const pillSeg = (act, cur, items) => `<div class="pillseg" role="group">${items.map(([v, label]) => `<button data-act="${act}" data-v="${v}" class="${v === cur ? 'on' : ''}" aria-pressed="${v === cur}">${label}</button>`).join('')}</div>`;
 
+/**
+ * Kilo eğilimi: üstel hareketli ortalama (EMA). Günlük katsayı 0,2 (yaklaşık 9 günlük ortalamaya denk).
+ * Eksik günlere dayanıklı: iki kayıt arasında g gün varsa yeni kaydın ağırlığı 1 − (1 − 0,2)^g olur;
+ * yani kayıt girilmeyen her gün, eski eğilimin etkisi aynı oranda azalır. İlk kayıtta eğilim = o günün kilosu.
+ */
+const TREND_ALPHA = 0.2;
+const TREND_DAYS = 28, TREND_MIN_N = 6, TREND_MIN_SPAN = 14;
+
+function weightTrend(body = state.body) {
+  const rows = [...body].sort((a, b) => a.date.localeCompare(b.date));
+  let t = null, prev = null;
+  return rows.map((m) => {
+    const ms = dateMs(m.date);
+    if (t == null) t = m.kg;
+    else t += (1 - Math.pow(1 - TREND_ALPHA, Math.max(1, Math.round((ms - prev) / DAY_MS)))) * (m.kg - t);
+    prev = ms;
+    return { date: m.date, kg: m.kg, trend: t };
+  });
+}
+
+/** Son 28 günün eğilim değerlerinden haftalık değişim (kg/hafta). Veri azsa null: en az 6 kayıt ve en az 14 güne yayılmış olmalı. */
+function trendRate(rows, today = todayStr()) {
+  const win = rows.filter((r) => r.date >= addDays(today, -TREND_DAYS) && r.date <= today);
+  if (win.length < TREND_MIN_N) return null;
+  const a = win[0], b = win[win.length - 1];
+  const days = Math.round((dateMs(b.date) - dateMs(a.date)) / DAY_MS);
+  if (days < TREND_MIN_SPAN) return null;
+  return ((b.trend - a.trend) / days) * 7;
+}
+
 /** Kilo grafiği: günlük (her kayıt bir nokta) ya da haftalık ortalama; aralık seçilebilir. */
 function renderWeightChart() {
   const pr = loadChartPrefs();
   const rangeDays = { '1m': 31, '3m': 92, all: null }[pr.range];
   const rangeName = { '1m': 'son 1 ay', '3m': 'son 3 ay', all: 'tüm kayıtlar' }[pr.range];
   const from = rangeDays ? addDays(todayStr(), -rangeDays) : '0000-00-00';
-  let points;
+  let points, trend = [];
   if (pr.mode === 'weekly') {
     points = weeklyAverages().filter((w) => addDays(w.start, 6) >= from).reverse().map((w) => {
       const v = Math.round(w.avg * 10) / 10;
       return { t: dateMs(addDays(w.start, 3)), v, tip: `${fmtDate(w.start)} – ${fmtDate(addDays(w.start, 6))} haftası · ${fmt(v)} kg ortalama (${w.n} kayıt)` };
     });
   } else {
-    points = state.body.filter((m) => m.date >= from).map((m) => ({ t: dateMs(m.date), v: m.kg, tip: `${fmtDate(m.date, true)} · ${fmt(m.kg)} kg` }));
+    // Eğilim bütün kayıtlardan hesaplanır, sonra aralığa göre süzülür (aralık başında sıfırlanmasın)
+    trend = weightTrend().filter((m) => m.date >= from);
+    const on = pr.trend && trend.length >= 2;
+    points = trend.map((m) => ({ t: dateMs(m.date), v: m.kg, tip: `${fmtDate(m.date, true)} · ${fmt(m.kg)} kg${on ? ` · eğilim ${fmt(Math.round(m.trend * 10) / 10)} kg` : ''}` }));
   }
+  const daily = pr.mode !== 'weekly';
+  const rate = daily ? trendRate(weightTrend()) : null;
+  const trendInfo = daily ? `<div class="trend-info" id="trendInfo">${rate == null ? 'Eğilim için birkaç hafta daha kayıt gerekiyor' : `Son 4 hafta: haftada ${signed(rate, 'kg')}`}</div>` : '';
   const controls = `
       <div class="chart-ctl">
         ${pillSeg('chart-mode', pr.mode, [['daily', 'Günlük'], ['weekly', 'Haftalık ortalama']])}
         ${pillSeg('chart-range', pr.range, [['1m', '1 ay'], ['3m', '3 ay'], ['all', 'Tümü']])}
+        ${daily ? `<div class="row-between trend-sw"><span>Eğilim çizgisi</span><button class="switch ${pr.trend ? 'on' : ''}" data-act="chart-trend" role="switch" aria-checked="${pr.trend}" aria-label="Eğilim çizgisi"><span></span></button></div>` : ''}
       </div>`;
   if (!state.body.length) return `<div class="chart-empty">Henüz kilo kaydı yok. İlk kaydını aşağıdan ekle; ikinci kayıttan sonra grafik burada görünür.</div>`;
   const last = points[points.length - 1];
@@ -1651,9 +1690,11 @@ function renderWeightChart() {
         <div class="delta"><b>${points.length > 1 ? signed(last.v - points[0].v, 'kg') : '–'}</b><span>${rangeName}</span></div>
       </div>` : '';
   const body = points.length >= 2
-    ? lineChart('weight', [{ name: 'Kilo', points }], { label: 'Kilo grafiği' })
+    ? lineChart('weight', daily && pr.trend
+      ? [{ name: 'Günlük kayıt', points, cls: 'dim', noLine: true }, { name: 'Eğilim', cls: 'trend', noPts: true, points: trend.map((m) => ({ t: dateMs(m.date), v: m.trend })) }]
+      : [{ name: 'Kilo', points }], { label: 'Kilo grafiği' })
     : `<div class="chart-empty">${points.length === 1 ? 'Bu aralıkta tek kayıt var. Grafik için en az iki kayıt gerekli.' : 'Bu aralıkta kayıt yok. Daha geniş bir aralık seç.'}</div>`;
-  return head + controls + body;
+  return head + controls + trendInfo + body;
 }
 
 function renderWaistChart() {
@@ -2422,6 +2463,7 @@ document.addEventListener('click', (ev) => {
     }
     case 'chart': chartTap(el, ev); break;
     case 'chart-mode': { const p = loadChartPrefs(); p.mode = el.dataset.v; saveChartPrefs(p); const b = $('#weightChart'); if (b) b.innerHTML = renderWeightChart(); break; }
+    case 'chart-trend': { const p = loadChartPrefs(); p.trend = !p.trend; saveChartPrefs(p); const b = $('#weightChart'); if (b) b.innerHTML = renderWeightChart(); break; }
     case 'chart-range': { const p = loadChartPrefs(); p.range = el.dataset.v; saveChartPrefs(p); const b = $('#weightChart'); if (b) b.innerHTML = renderWeightChart(); break; }
     case 'week-nav':
       ui.weekOffset = Math.max(0, (ui.weekOffset || 0) + Number(el.dataset.d)); render(); break;
@@ -2535,7 +2577,8 @@ document.addEventListener('focusin', (ev) => {
   ui.prevW = s.w;
   // Kolay düzenleme için yazıyı seç. Sadece kutu hâlâ odaktaysa: select() odağı geri çekebilir ve
   // hızlı geçişlerde yazılan sayı önceki kutuya düşebilirdi.
-  setTimeout(() => { if (document.activeElement === inp) { try { inp.select(); } catch (_) {} } }, 0);
+  const v0 = inp.value; // bu arada yazı değiştiyse (çok hızlı yazım) seçme: yazılan rakam silinmesin
+  setTimeout(() => { if (document.activeElement === inp && inp.value === v0) { try { inp.select(); } catch (_) {} } }, 0);
 });
 
 document.addEventListener('input', (ev) => {
