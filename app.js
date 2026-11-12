@@ -8,7 +8,7 @@
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
 const DATA_VERSION = 4;
 const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4']; // sürüm geçişlerinden önceki birebir kopyalar
-const APP_VERSION = '4.5.0';
+const APP_VERSION = '4.6.0';
 const LATE_FINISH_MS = 30 * 60000;      // son setten bu kadar sonra bitirilirse bitiş zamanı son set sayılır
 const WAIST_EVERY_DAYS = 14;
 
@@ -1257,6 +1257,137 @@ function weeklyAverages() {
 }
 
 
+/* ---------------- Grafik (ortak): kilo, bel ve hareket ilerlemesi aynı fonksiyonla çizilir ---------------- */
+
+const charts = {};   // id → { W, H, pts: [{ x, y, tip }] } (dokununca en yakın noktayı bulmak için)
+const CHART_KEY = 'ironlog.chart';   // görünüm tercihi; yedeğe girmez
+
+function loadChartPrefs() {
+  let p = {};
+  try { p = JSON.parse(localStorage.getItem(CHART_KEY) || '{}') || {}; } catch (_) {}
+  return { mode: p.mode === 'weekly' ? 'weekly' : 'daily', range: ['1m', '3m', 'all'].includes(p.range) ? p.range : '3m' };
+}
+function saveChartPrefs(p) { try { localStorage.setItem(CHART_KEY, JSON.stringify(p)); } catch (_) {} }
+
+const dateMs = (d) => new Date(d.length === 10 ? d + 'T12:00:00' : d).getTime();
+const signed = (n, unit) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${fmt(Math.abs(Math.round(n * 10) / 10))} ${unit}`;
+const shortDate = (ms) => new Date(ms).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+
+/**
+ * Çizgi grafik (satır içi SVG).
+ * series: [{ name, points: [{ t: ms, v: sayı, tip: 'dokununca görünen yazı' }] }]
+ * Dikey eksen sıfırdan başlamaz; verinin aralığına göre ayarlanır.
+ */
+function lineChart(id, series, o = {}) {
+  const W = 340, H = o.height || 170, L = 34, R = 10, T = 10, B = 22;
+  const all = series.flatMap((s) => s.points);
+  if (all.length < 2) return '';
+  let lo = Math.min(...all.map((p) => p.v)), hi = Math.max(...all.map((p) => p.v));
+  if (hi - lo < 1e-9) { lo -= 1; hi += 1; }
+  const step = [0.1, 0.2, 0.5, 1, 2, 2.5, 5, 10, 20, 25, 50, 100].find((s) => (hi - lo) / s <= 4) || 200;
+  const y0 = Math.floor(lo / step + 1e-9) * step, y1 = Math.ceil(hi / step - 1e-9) * step;
+  let t0 = Math.min(...all.map((p) => p.t)), t1 = Math.max(...all.map((p) => p.t));
+  if (t1 === t0) { t0 -= DAY_MS; t1 += DAY_MS; }
+  const X = (t) => L + ((t - t0) / (t1 - t0)) * (W - L - R);
+  const Y = (v) => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
+  const f1 = (n) => Math.round(n * 10) / 10;
+
+  let grid = '';
+  for (let v = y0; v <= y1 + step / 1000; v += step) {
+    grid += `<line class="c-grid" x1="${L}" x2="${W - R}" y1="${f1(Y(v))}" y2="${f1(Y(v))}"/><text class="c-lbl" x="${L - 6}" y="${f1(Y(v) + 3.5)}" text-anchor="end">${fmt(Math.round(v * 100) / 100)}</text>`;
+  }
+  const xl = [[t0, 'start', L]];
+  if (t1 - t0 > 20 * DAY_MS) xl.push([(t0 + t1) / 2, 'middle', (L + W - R) / 2]);
+  xl.push([t1, 'end', W - R]);
+  const xlabels = xl.map(([t, a, x]) => `<text class="c-lbl" x="${f1(x)}" y="${H - 5}" text-anchor="${a}">${shortDate(t)}</text>`).join('');
+
+  const pts = [];
+  const dense = all.length > 45;
+  const lines = series.map((s, si) => {
+    const p = s.points.map((q) => ({ x: f1(X(q.t)), y: f1(Y(q.v)), tip: q.tip }));
+    p.forEach((q) => pts.push(q));
+    return `${p.length > 1 ? `<polyline class="c-line s${si}" points="${p.map((q) => `${q.x},${q.y}`).join(' ')}"/>` : ''}
+      ${p.map((q) => `<circle class="c-pt s${si}" cx="${q.x}" cy="${q.y}" r="${dense ? 2 : 3}"/>`).join('')}`;
+  }).join('');
+  charts[id] = { W, H, pts };
+
+  const legend = series.length > 1 ? `<div class="c-legend">${series.map((s, si) => `<span><i class="s${si}"></i>${esc(s.name)}</span>`).join('')}</div>` : '';
+  return `
+    <div class="chart">
+      ${legend}
+      <svg class="chart-svg" viewBox="0 0 ${W} ${H}" data-act="chart" data-chart="${id}" role="img" aria-label="${esc(o.label || 'Grafik')}">
+        ${grid}${xlabels}${lines}
+        <line class="c-cursor" id="cur-${id}" x1="0" x2="0" y1="${T}" y2="${H - B}" visibility="hidden"/>
+        <circle class="c-sel" id="sel-${id}" r="5.5" visibility="hidden"/>
+      </svg>
+      <div class="chart-tip" id="tip-${id}">Değeri görmek için grafikte bir noktaya dokun.</div>
+    </div>`;
+}
+
+/** Grafiğe dokununca en yakın noktayı seçer; tarih ve değeri altına yazar. */
+function chartTap(svg, ev) {
+  const c = charts[svg.dataset.chart];
+  if (!c || !c.pts.length) return;
+  const r = svg.getBoundingClientRect();
+  const x = ((ev.clientX - r.left) / r.width) * c.W, y = ((ev.clientY - r.top) / r.height) * c.H;
+  let best = null, bd = Infinity;
+  c.pts.forEach((p) => { const d = (p.x - x) ** 2 + 0.2 * (p.y - y) ** 2; if (d < bd) { bd = d; best = p; } });
+  const id = svg.dataset.chart;
+  const sel = document.getElementById('sel-' + id), cur = document.getElementById('cur-' + id), tip = document.getElementById('tip-' + id);
+  sel.setAttribute('cx', best.x); sel.setAttribute('cy', best.y); sel.setAttribute('visibility', 'visible');
+  cur.setAttribute('x1', best.x); cur.setAttribute('x2', best.x); cur.setAttribute('visibility', 'visible');
+  tip.textContent = best.tip; tip.classList.add('on');
+}
+
+const pillSeg = (act, cur, items) => `<div class="pillseg" role="group">${items.map(([v, label]) => `<button data-act="${act}" data-v="${v}" class="${v === cur ? 'on' : ''}" aria-pressed="${v === cur}">${label}</button>`).join('')}</div>`;
+
+/** Kilo grafiği: günlük (her kayıt bir nokta) ya da haftalık ortalama; aralık seçilebilir. */
+function renderWeightChart() {
+  const pr = loadChartPrefs();
+  const rangeDays = { '1m': 31, '3m': 92, all: null }[pr.range];
+  const rangeName = { '1m': 'son 1 ay', '3m': 'son 3 ay', all: 'tüm kayıtlar' }[pr.range];
+  const from = rangeDays ? addDays(todayStr(), -rangeDays) : '0000-00-00';
+  let points;
+  if (pr.mode === 'weekly') {
+    points = weeklyAverages().filter((w) => addDays(w.start, 6) >= from).reverse().map((w) => {
+      const v = Math.round(w.avg * 10) / 10;
+      return { t: dateMs(addDays(w.start, 3)), v, tip: `${fmtDate(w.start)} – ${fmtDate(addDays(w.start, 6))} haftası · ${fmt(v)} kg ortalama (${w.n} kayıt)` };
+    });
+  } else {
+    points = state.body.filter((m) => m.date >= from).map((m) => ({ t: dateMs(m.date), v: m.kg, tip: `${fmtDate(m.date, true)} · ${fmt(m.kg)} kg` }));
+  }
+  const controls = `
+      <div class="chart-ctl">
+        ${pillSeg('chart-mode', pr.mode, [['daily', 'Günlük'], ['weekly', 'Haftalık ortalama']])}
+        ${pillSeg('chart-range', pr.range, [['1m', '1 ay'], ['3m', '3 ay'], ['all', 'Tümü']])}
+      </div>`;
+  if (!state.body.length) return `<div class="chart-empty">Henüz kilo kaydı yok. İlk kaydını aşağıdan ekle; ikinci kayıttan sonra grafik burada görünür.</div>`;
+  const last = points[points.length - 1];
+  const head = last ? `
+      <div class="chart-head">
+        <div><b>${fmt(last.v)} kg</b><span>${pr.mode === 'weekly' ? 'son haftanın ortalaması' : 'son kayıt'}</span></div>
+        <div class="delta"><b>${points.length > 1 ? signed(last.v - points[0].v, 'kg') : '–'}</b><span>${rangeName}</span></div>
+      </div>` : '';
+  const body = points.length >= 2
+    ? lineChart('weight', [{ name: 'Kilo', points }], { label: 'Kilo grafiği' })
+    : `<div class="chart-empty">${points.length === 1 ? 'Bu aralıkta tek kayıt var. Grafik için en az iki kayıt gerekli.' : 'Bu aralıkta kayıt yok. Daha geniş bir aralık seç.'}</div>`;
+  return head + controls + body;
+}
+
+function renderWaistChart() {
+  if (!state.waist.length) return '';
+  const points = state.waist.map((m) => ({ t: dateMs(m.date), v: m.cm, tip: `${fmtDate(m.date, true)} · ${fmt(m.cm)} cm` }));
+  const last = points[points.length - 1];
+  const head = `
+      <div class="chart-head">
+        <div><b>${fmt(last.v)} cm</b><span>son ölçüm</span></div>
+        <div class="delta"><b>${points.length > 1 ? signed(last.v - points[0].v, 'cm') : '–'}</b><span>tüm kayıtlar</span></div>
+      </div>`;
+  return head + (points.length >= 2 ? lineChart('waist', [{ name: 'Bel', points }], { height: 130, label: 'Bel ölçüsü grafiği' })
+    : '<div class="chart-empty">Grafik için en az iki ölçüm gerekli.</div>');
+}
+
+
 function renderTrack() {
   const today = todayStr();
   const thisWeek = weekStart(today);
@@ -1292,6 +1423,7 @@ function renderTrack() {
         <label class="fld"><input id="bodyVal" type="text" inputmode="decimal" placeholder="kg" autocomplete="off" aria-label="Kilo (kg)"></label>
         <button class="btn" data-act="add-measure" data-kind="kg">Kaydet</button>
       </div>
+      <div class="chart-block" id="weightChart">${renderWeightChart()}</div>
       ${weeks.length ? `<h3 class="sub">Haftalık ortalama</h3>${weekRows}` : ''}
       ${state.body.length ? `<h3 class="sub">Son kayıtlar</h3>${entryRows(state.body, 'kg', 'kg')}` : ''}
     </section>
@@ -1303,6 +1435,7 @@ function renderTrack() {
         <label class="fld"><input id="waistVal" type="text" inputmode="decimal" placeholder="cm" autocomplete="off" aria-label="Bel ölçüsü (cm)"></label>
         <button class="btn" data-act="add-measure" data-kind="cm">Kaydet</button>
       </div>
+      <div class="chart-block" id="waistChart">${renderWaistChart()}</div>
       ${state.waist.length ? `<h3 class="sub">Kayıtlar</h3>${entryRows(state.waist, 'cm', 'cm')}` : ''}
     </section>
 `;
@@ -1388,11 +1521,15 @@ function renderProgress() {
   const sel = opts.find((o) => o.id === ui.progEx) || opts[0];
   const ex = exDef(sel.id);
   const bw = ex.load === 'bodyweight';
+  const series = [];
   const lists = sel.slots.map((sl) => {
-    const rows = state.sessions
+    const recs = state.sessions
       .filter((s) => s.type === sl.type && !s.deload)
       .map((s) => ({ s, e: s.entries.find((x) => x.slot === sl.key && !x.sub && !x.skipped) }))
-      .filter((x) => x.e && bestSet(x.e))
+      .filter((x) => x.e && bestSet(x.e));
+    // Her seans türü ayrı çizgi (ör. Üst A ve Üst B'deki lat pulldown)
+    series.push({ name: sessionDef(sl.type).name, points: recs.map((x) => { const b = bestSet(x.e); return { t: new Date(x.s.finishedAt).getTime(), v: bw ? b.r : (b.w || 0), tip: `${bw ? `${b.r} tekrar` : `${fmt(b.w)} kg × ${b.r}`} · ${fmtDate(x.s.finishedAt, true)} · ${sessionDef(sl.type).name}` }; }) });
+    const rows = recs
       .map((x) => { const b = bestSet(x.e); return `<div class="hist-ex"><span>${fmtDate(x.s.finishedAt, true)}</span><span class="v"><b>${bw ? `${b.r} tekrar` : `${fmt(b.w)} kg × ${b.r}`}</b></span></div>`; });
     return `<h3 class="sub">${esc(sessionDef(sl.type).name)} · ${rangeText(sl.reps)}</h3>${rows.length ? rows.join('') : '<p class="muted small" style="margin:4px 0 0">Henüz kayıt yok.</p>'}`;
   }).join('');
@@ -1403,6 +1540,8 @@ function renderProgress() {
       <select id="progEx" class="text-in" aria-label="Hareket seç">
         ${opts.map((o) => `<option value="${o.id}" ${o.id === sel.id ? 'selected' : ''}>${esc(exDef(o.id).name)}${exDef(o.id).retired ? ' (programdan çıktı)' : ''}</option>`).join('')}
       </select>
+      <div class="chart-block" id="progChart">${lineChart('prog', series.filter((x) => x.points.length), { label: 'Hareket ilerlemesi grafiği' })
+        || (series.some((x) => x.points.length) ? '<div class="chart-empty">Grafik için en az iki kayıt gerekli.</div>' : '')}</div>
       ${lists}
     </section>`;
 }
@@ -1977,6 +2116,9 @@ document.addEventListener('click', (ev) => {
       save(); render();
       break;
     }
+    case 'chart': chartTap(el, ev); break;
+    case 'chart-mode': { const p = loadChartPrefs(); p.mode = el.dataset.v; saveChartPrefs(p); const b = $('#weightChart'); if (b) b.innerHTML = renderWeightChart(); break; }
+    case 'chart-range': { const p = loadChartPrefs(); p.range = el.dataset.v; saveChartPrefs(p); const b = $('#weightChart'); if (b) b.innerHTML = renderWeightChart(); break; }
     case 'week-nav':
       ui.weekOffset = Math.max(0, (ui.weekOffset || 0) + Number(el.dataset.d)); render(); break;
     case 'go-backup':

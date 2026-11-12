@@ -524,3 +524,33 @@ body.timer-on .toast { bottom: calc(var(--tabs-h) + var(--safe-b) + 86px); }
 .btn.danger.solid { background: var(--danger); color: var(--bg); border-color: transparent; font-weight: 750; }
 body.sheet-open { overflow: hidden; }
 @media (max-width: 360px) { .hero-day { min-width: 64px; height: 76px; } .hero-day b { font-size: 40px; } }
+
+/* ---- Aşama 3: grafikler (üçü de aynı stil) ---- */
+.chart-block { margin-top: 14px; }
+.chart-block:empty { display: none; }
+.chart-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-bottom: 10px; }
+.chart-head b { display: block; font-size: 26px; font-weight: 850; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.chart-head span { font-size: 12px; color: var(--muted); }
+.chart-head .delta { text-align: right; }
+.chart-head .delta b { font-size: 18px; color: var(--text2); }
+.chart-ctl { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.pillseg { display: flex; background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 3px; }
+.pillseg button { flex: 1; min-height: 44px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: 14px; font-weight: 700; }
+.pillseg button.on { background: var(--sel-bg); color: var(--text); box-shadow: inset 0 0 0 1px var(--sel-line); }
+.chart-svg { display: block; width: 100%; height: auto; touch-action: manipulation; }
+.c-grid { stroke: var(--line); stroke-width: 1; }
+.c-lbl { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.c-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.c-line.s0 { stroke: var(--text); }
+.c-line.s1 { stroke: var(--muted); stroke-dasharray: 5 4; }
+.c-pt { stroke-width: 2; fill: var(--card); }
+.c-pt.s0 { stroke: var(--text); }
+.c-pt.s1 { stroke: var(--muted); }
+.c-cursor { stroke: var(--line2); stroke-width: 1; stroke-dasharray: 3 3; }
+.c-sel { fill: var(--accent); stroke: var(--card); stroke-width: 2; }
+.chart-tip { margin-top: 6px; min-height: 22px; font-size: 13px; color: var(--muted); text-align: center; }
+.chart-tip.on { color: var(--text); font-weight: 700; }
+.c-legend { display: flex; gap: 14px; justify-content: flex-end; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.c-legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--text); vertical-align: middle; margin-right: 6px; }
+.c-legend i.s1 { border-top: 2px dashed var(--muted); }
+.chart-empty { padding: 18px 14px; border: 1px dashed var(--line2); border-radius: 12px; color: var(--muted); font-size: 14px; text-align: center; }
