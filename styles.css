@@ -554,3 +554,27 @@ body.sheet-open { overflow: hidden; }
 .c-legend i { display: inline-block; width: 18px; height: 0; border-top: 2px solid var(--text); vertical-align: middle; margin-right: 6px; }
 .c-legend i.s1 { border-top: 2px dashed var(--muted); }
 .chart-empty { padding: 18px 14px; border: 1px dashed var(--line2); border-radius: 12px; color: var(--muted); font-size: 14px; text-align: center; }
+
+/* ---- Aşama 4: sade Odak kartı ---- */
+.fx .ex-head { margin-bottom: 2px; }
+.fx .ex-tags .kind { letter-spacing: .1em; }
+.fx h3 { font-size: 22px; }
+.fx-sug { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; margin-top: 8px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card2); color: var(--text2); font-size: 14px; font-weight: 650; text-align: left; }
+.fx-sug span { flex: 1; min-width: 0; }
+.fx-sug .ico { color: var(--muted); }
+.fx-sug.bump, .fx-sug.back { color: var(--text); border-color: var(--line2); }
+.fx-sug.bump .ico, .fx-sug.back .ico { color: var(--text); }
+.fx-sug .chev, .fx-more-btn .chev { font-style: normal; color: var(--muted); font-size: 20px; }
+.fx-sug-more { margin-top: 6px; padding: 10px 12px; border-radius: 12px; background: var(--card2); color: var(--text2); font-size: 14px; line-height: 1.5; }
+.fx .warm { margin-top: 8px; padding: 8px 12px; font-size: 14px; }
+.fx .warm .note-sub2 { display: none; }
+.fx-set { margin-top: 10px; }
+.fx-strip { display: flex; gap: 6px; margin-top: 8px; }
+.fx-chip { flex: 1; flex-direction: row; gap: 4px; min-height: 44px; padding: 0 4px; border-radius: 22px; font-size: 14px; }
+.fx-chip svg { width: 14px; height: 14px; fill: none; stroke: var(--ok); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.fx-next { margin-top: 6px; font-size: 13px; text-align: center; }
+.fx-next b { font-weight: 650; }
+.fx-more-btn { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 48px; margin-top: 8px; padding: 0 4px; border: 0; border-top: 1px solid var(--line); background: none; color: var(--text); font-size: 15px; font-weight: 700; text-align: left; }
+.fx-more-btn .muted { flex: 1; font-weight: 500; }
+.fx-more { margin-top: 0; padding-bottom: 4px; }
+.fx-more .ex-meta { margin-top: 2px; }

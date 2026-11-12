@@ -8,7 +8,7 @@
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
 const DATA_VERSION = 4;
 const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4']; // sürüm geçişlerinden önceki birebir kopyalar
-const APP_VERSION = '4.6.0';
+const APP_VERSION = '4.7.0';
 const LATE_FINISH_MS = 30 * 60000;      // son setten bu kadar sonra bitirilirse bitiş zamanı son set sayılır
 const WAIST_EVERY_DAYS = 14;
 
@@ -87,6 +87,7 @@ const ICON = {
   up: ico('<path d="M12 19V5M6 11l6-6 6 6"/>'),
   back: ico('<path d="M9 14l-5-5 5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>'),
   x: ico('<path d="M6 6l12 12M18 6L6 18"/>'),
+  info: ico('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>'),
 };
 
 /** Set listesi: kilolar aynıysa "20 kg × 6, 6, 6, 6"; farklıysa "20×10 · 22,5×9" (her set bölünmeden). */
@@ -376,20 +377,20 @@ function suggestion(sess, e) {
   const ex = exDef(e.ex);
   if (!sl || !ex || sess.deload) return null;
   const ref = progressRef(sess, e);
-  if (!ref) return ex.load === 'bodyweight' ? null : { kind: 'first', text: PROGRAM.firstTime };
+  if (!ref) return ex.load === 'bodyweight' ? null : { kind: 'first', short: 'İlk hafta: hafif başla', text: PROGRAM.firstTime };
   if (ex.load === 'bodyweight') return null;
   const thr = topThreshold(sl);
   if (allAtTop(ref.entry, thr)) {
-    return { kind: 'bump', text: `Ağırlığı en küçük adımla artır. Geçen sefer ${fmt(maxW(ref.entry))} kg ile bütün setlerde ${thr}${bigStepOn(sl.ex) ? ' (büyük adım: üst sınır + 2)' : ''} tekrara ulaştın. Yeni kiloda tekrarların aralığın altına (${sl.reps[0]}) yakın düşmesi normal; oradan yeniden tırman.` };
+    return { kind: 'bump', short: 'Kiloyu artır', text: `Ağırlığı en küçük adımla artır. Geçen sefer ${fmt(maxW(ref.entry))} kg ile bütün setlerde ${thr}${bigStepOn(sl.ex) ? ' (büyük adım: üst sınır + 2)' : ''} tekrara ulaştın. Yeni kiloda tekrarların aralığın altına (${sl.reps[0]}) yakın düşmesi normal; oradan yeniden tırman.` };
   }
   const first = ref.entry.sets[0];
   if (first && first.done && first.r != null && first.r < sl.reps[0]) {
     const back = previousWeight(sess.type, e, ref);
-    return { kind: 'back', text: back != null
+    return { kind: 'back', short: back != null ? `Önceki kiloya dön (${fmt(back)} kg)` : 'Kiloyu bir kademe azalt', text: back != null
       ? `Geçen sefer ilk sette alt sınıra (${sl.reps[0]}) ulaşamadın: önceki ağırlığa dön (${fmt(back)} kg).`
       : `Geçen sefer ilk sette alt sınıra (${sl.reps[0]}) ulaşamadın: kiloyu bir kademe azalt.` };
   }
-  return { kind: 'same', text: 'Aynı kilo: geçen seferden bir tekrar fazlasını dene.' };
+  return { kind: 'same', short: 'Aynı kilo, +1 tekrar dene', text: 'Aynı kilo: geçen seferden bir tekrar fazlasını dene.' };
 }
 
 /** Bir setin "geçen / hedef" bilgisi. Hedef: aynı kiloda geçen seferden 1 fazla, üst sınırı geçmeden. */
@@ -737,8 +738,9 @@ function focusStrip(sess, i, j) {
   const e = sess.entries[i];
   const bw = exDef(e.ex).load === 'bodyweight';
   return e.sets.map((s, k) => {
-    const v = s.done ? (bw ? `${s.r == null ? '–' : s.r}` : `${fmt(s.w)}×${s.r == null ? '–' : s.r}`) : (k === j ? 'şimdi' : '–');
-    return `<button class="fx-chip${s.done ? ' done' : ''}${k === j ? ' cur' : ''}" data-act="focus-set" data-slot="${esc(e.slot)}" data-set="${k}" aria-label="Set ${k + 1}${s.done ? ' tamam, düzelt' : ''}"><small>Set ${k + 1}</small><span>${v}</span></button>`;
+    // İnce şerit: yapılan set "✓ 8", şimdiki "Set 2", kalanlar sıra numarası
+    const v = s.done ? `${CHECK_SVG}<span>${s.r == null ? '–' : s.r}</span>` : (k === j ? `<span>Set ${k + 1}</span>` : `<span>${k + 1}</span>`);
+    return `<button class="fx-chip${s.done ? ' done' : ''}${k === j ? ' cur' : ''}" data-act="focus-set" data-slot="${esc(e.slot)}" data-set="${k}" aria-label="Set ${k + 1}${s.done ? `: ${bw ? '' : fmt(s.w) + ' kg × '}${s.r} tekrar, düzelt` : ''}">${v}</button>`;
   }).join('');
 }
 
@@ -813,19 +815,27 @@ function renderFocus(sess, cur) {
         <button class="btn danger" data-act="check" data-ex="${i}" data-set="${j}">Tiki kaldır</button>
       </div>`
     : `<button class="btn primary fx-done" data-act="check" data-ex="${i}" data-set="${j}">Seti tamamla</button>`;
+  // Üst kısım: yalnızca o an gerekenler. Diğer her şey "Daha fazla" bölümünde.
+  const sugKey = `sug-${i}`, moreKey = `more-${i}`;
+  const sugOpen = ui.open.has(sugKey), moreOpen = ui.open.has(moreKey);
+  const sugRow = p.sug ? `
+      <button class="fx-sug ${p.sug.kind}" data-act="toggle" data-key="${sugKey}" aria-expanded="${sugOpen}">
+        ${p.sug.kind === 'bump' ? ICON.up : p.sug.kind === 'back' ? ICON.back : ICON.info}<span>${esc(p.sug.short)}</span><i class="chev">${sugOpen ? '−' : '+'}</i>
+      </button>
+      ${sugOpen ? `<div class="fx-sug-more">${esc(p.sug.text)}</div>` : ''}` : '';
+  // Isınma yalnızca bu hareketin ilk seti yapılmadan önce görünür
+  const warm = e.sets.some((x) => x.done) ? '' : p.warm;
   return `
     <article class="card ex fx ${p.partner != null ? 'in-ss' : ''}" id="ex-${i}">
       <div class="ex-head">
-        <span class="ex-num">${String(i + 1).padStart(2, '0')}</span>
         <div class="grow">
-          <div class="ex-tags"><span class="kind">${esc(p.ex.muscle)}</span>${p.tags}</div>
+          <div class="ex-tags"><span class="kind">${String(i + 1).padStart(2, '0')} · ${esc(p.ex.muscle)}</span>${p.tags}</div>
           <h3>${esc(p.title)}</h3>
           ${p.machine ? `<div class="machine-note">${ICON.gear} ${esc(p.machine)}</div>` : ''}
         </div>
       </div>
-      <div class="ex-meta">${p.n} set × ${rangeText(p.sl.reps)} tekrar${p.ex.perSide ? ' (her kol)' : ''} · ${p.restText}</div>
-      ${p.lastHtml}
-      ${p.sugHtml}
+      ${sugRow}
+      ${warm}
       <div class="set2 fx-set ${s.done ? 'done' : ''}" id="set-${i}-${j}">
         <div class="set2-top">
           <span class="sn">Set ${j + 1} / ${p.n}</span>
@@ -843,13 +853,16 @@ function renderFocus(sess, cur) {
       <div class="fx-strip" id="fx-strip" data-ex="${i}" data-set="${j}">${focusStrip(sess, i, j)}</div>
       ${s.done ? '' : `<div class="fx-next" id="fx-next">${focusNextHtml(sess, cur)}</div>`}
       ${manual && !s.done ? '<button class="btn ghost mini fx-auto" data-act="focus-auto">Otomatik sıraya dön</button>' : ''}
-      <div class="fx-more">
+      <button class="fx-more-btn" data-act="toggle" data-key="${moreKey}" aria-expanded="${moreOpen}"><span>Daha fazla</span><span class="muted small">form, alet doluysa, ayar</span><i class="chev">${moreOpen ? '−' : '+'}</i></button>
+      ${moreOpen ? `<div class="fx-more">
+        <div class="ex-meta">${p.n} set × ${rangeText(p.sl.reps)} tekrar${p.ex.perSide ? ' (her kol)' : ''} · ${p.restText}</div>
+        ${p.lastHtml}
+        ${p.extra}
         ${p.ssToggle}
-        ${p.notes}
         ${p.skip}
         ${p.toggles}
         ${p.boxes}
-      </div>
+      </div>` : ''}
     </article>
     ${list}`;
 }
@@ -986,8 +999,14 @@ function renderExercise(sess, e, i, parts) {
   const sug = live ? suggestion(sess, e) : null;
   if (sug) notes += `<div class="note ${sug.kind === 'bump' || sug.kind === 'back' ? 'warn' : 'blue'} sug sug-${sug.kind}">${sug.kind === 'bump' ? ICON.up + ' ' : sug.kind === 'back' ? ICON.back + ' ' : ''}${esc(sug.text)}</div>`;
   const sugHtml = notes;
+  const warm = live ? warmupHtml(sl, e, i) : '';
+  let extra = '';
+  if (sess.deload) extra += `<div class="note blue">Yük azaltma: kilolar aynı, ${n} set, her set 3 tekrar kala bitir; tükeniş yok.</div>`;
+  if (sl.effortNote) extra += `<div class="note blue">${esc(sl.effortNote)}</div>`;
+  if (sl.note && !e.sub) extra += `<div class="note blue">${esc(sl.note)}</div>`;
+  // Liste görünümündeki sıra: öneri, yük azaltma notu, ısınma, zorluk notu, hareket notu
   if (sess.deload) notes += `<div class="note blue">Yük azaltma: kilolar aynı, ${n} set, her set 3 tekrar kala bitir; tükeniş yok.</div>`;
-  if (live) notes += warmupHtml(sl, e, i);
+  notes += warm;
   if (sl.effortNote) notes += `<div class="note blue">${esc(sl.effortNote)}</div>`;
   if (sl.note && !e.sub) notes += `<div class="note blue">${esc(sl.note)}</div>`;
 
@@ -1057,7 +1076,7 @@ function renderExercise(sess, e, i, parts) {
     </div>`;
 
   if (parts) {
-    return { sl, ex, n, title, tags, restText, partner, bodyweight, machine: cfg.note || '', lastHtml, sugHtml, notes: notes.slice(sugHtml.length),
+    return { sl, ex, n, title, tags, restText, partner, bodyweight, machine: cfg.note || '', lastHtml, sug, warm, extra,
       skip: sl.optional && live ? `<button class="btn ghost mini" data-act="skip" data-ex="${i}" style="margin-top:10px">Bugün atla</button>` : '',
       toggles: `<div class="toggles" style="grid-template-columns:repeat(${toggles.length},1fr)">${toggles.join('')}</div>`,
       ssToggle,
