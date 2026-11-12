@@ -81,11 +81,6 @@ body.timer-on #app { padding-bottom: calc(var(--tabs-h) + var(--safe-b) + 190px)
 /* Ana kart */
 .hero { border-color: var(--line2); }
 .hero-row { display: flex; align-items: center; gap: 16px; margin: 6px 0 4px; }
-.hero-day {
-  font-size: 84px; line-height: .9; font-weight: 900; font-style: italic;
-  color: var(--text);
-  min-width: 64px;
-}
 .hero-title { font-size: 24px; font-weight: 850; }
 
 /* Düğmeler */
@@ -294,7 +289,7 @@ h3.sub { font-size: 12px; color: var(--muted); margin: 18px 0 4px; text-transfor
 /* Bildirim */
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%); z-index: 40;
-  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  bottom: calc(var(--tabs-h) + var(--safe-b) + 10px);
   max-width: calc(100% - 32px); width: max-content;
   background: var(--text); color: var(--bg); padding: 12px 16px; border-radius: 14px;
   font-weight: 700; font-size: 15px; box-shadow: 0 10px 30px var(--shadow);
@@ -311,7 +306,6 @@ h3.sub { font-size: 12px; color: var(--muted); margin: 18px 0 4px; text-transfor
   .t-btn { min-width: 50px; }
   .weeks { grid-template-columns: repeat(4, 1fr); }
   .stat b { font-size: 19px; }
-  .hero-day { font-size: 70px; }
 }
 
 /* ---- 4 seanslık program ---- */
@@ -365,9 +359,6 @@ h3.sub { font-size: 12px; color: var(--muted); margin: 18px 0 4px; text-transfor
 .sbtn svg { width: 22px; height: 22px; fill: none; stroke: var(--text); stroke-width: 2.6; stroke-linecap: round; }
 .toast { display: flex; align-items: center; gap: 12px; }
 .toast .undo { border: 0; background: var(--bg); color: var(--text); font-weight: 800; border-radius: 10px; padding: 8px 12px; font-size: 14px; flex: none; min-height: 44px; }
-.hist-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-.hist-actions .btn + .btn { margin-top: 0; }
-.hist-actions .hist-del { margin-top: 0; }
 .hero.dim { opacity: .55; }
 .summary { border-color: var(--line2); }
 .bullets.plain { padding: 10px 0 0 20px; }
@@ -480,3 +471,56 @@ select.text-in { -webkit-appearance: none; appearance: none; font-weight: 700; b
 .stepper input.pre { color: var(--dim); font-style: italic; font-weight: 600; }
 .set2.done .chk { background: var(--ok); border-color: var(--ok); }
 .set2.done .chk svg { stroke: var(--ok-ink); }
+
+/* ---- Aşama 2 ---- */
+/* Bildirim altta: sayaç çubuğunun ve alt menünün hemen üstünde */
+body.timer-on .toast { bottom: calc(var(--tabs-h) + var(--safe-b) + 86px); }
+.toast { padding: 8px 8px 8px 16px; min-height: 48px; align-items: center; }
+.toast > span:only-child, .toast:not(:has(button)) { padding-right: 8px; }
+
+/* Çizgi ikonlar */
+.ico { width: 1.15em; height: 1.15em; vertical-align: -0.2em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.tabs svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.x .ico { width: 18px; height: 18px; }
+.x { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+.hist-note { display: flex; gap: 8px; align-items: flex-start; }
+.hist-note .ico { margin-top: 2px; color: var(--muted); }
+.backup-hint .ico { color: var(--muted); margin-right: 4px; }
+
+/* Set listeleri: satır, setin ortasından bölünmez */
+.nw { white-space: nowrap; }
+.hist-ex { align-items: flex-start; }
+.hist-ex > span:first-child { flex: 1 1 auto; min-width: 0; }
+.hist-ex .v { flex: 0 1 auto; max-width: 70%; display: block; text-align: right; line-height: 1.5; }
+.last .nw { white-space: normal; }
+.hist-ex .v:has(.x) { display: flex; align-items: center; max-width: none; }
+
+/* Geçmiş kartı: Düzenle belirgin, Sil geride */
+.hist-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.hist-actions .hist-edit { flex: 1; min-height: 48px; font-size: 16px; }
+.textbtn { border: 0; background: none; min-height: 44px; padding: 0 14px; font-size: 14px; font-weight: 650; color: var(--muted); border-radius: 10px; }
+.textbtn.danger { color: var(--danger); }
+.textbtn:active { background: var(--card2); }
+
+/* Ana ekran: "ÜST" küçük, "A" büyük */
+.hero-day { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 76px; height: 84px; border: 1px solid var(--line2); border-radius: 16px; background: var(--card2); font-style: normal; line-height: 1; }
+.hero-day small { font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.hero-day b { font-size: 46px; font-weight: 900; margin-top: 2px; }
+
+/* Takip: kas adı sığsın */
+.wk-m { white-space: normal; line-height: 1.15; }
+.wk-m small { display: block; font-size: 11px; color: var(--muted); }
+
+/* Onay paneli */
+.sheet-wrap { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; }
+.sheet-wrap[hidden] { display: none; }
+.sheet-back { position: absolute; inset: 0; background: var(--shadow); }
+.sheet { position: relative; width: 100%; max-width: 560px; background: var(--card); border: 1px solid var(--line2); border-bottom: 0; border-radius: 22px 22px 0 0; padding: 10px 16px calc(var(--safe-b) + 16px); }
+.sheet-grab { width: 40px; height: 4px; border-radius: 2px; background: var(--line2); margin: 0 auto 14px; }
+.sheet h2 { font-size: 20px; }
+.sheet p { color: var(--text2); font-size: 15px; margin: 8px 0 0; }
+.sheet .btn { margin-top: 14px; min-height: 54px; font-size: 17px; }
+.sheet .btn + .btn { margin-top: 8px; }
+.btn.danger.solid { background: var(--danger); color: var(--bg); border-color: transparent; font-weight: 750; }
+body.sheet-open { overflow: hidden; }
+@media (max-width: 360px) { .hero-day { min-width: 64px; height: 76px; } .hero-day b { font-size: 40px; } }

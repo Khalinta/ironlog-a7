@@ -8,7 +8,7 @@
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
 const DATA_VERSION = 4;
 const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4']; // sürüm geçişlerinden önceki birebir kopyalar
-const APP_VERSION = '4.4.0';
+const APP_VERSION = '4.5.0';
 const LATE_FINISH_MS = 30 * 60000;      // son setten bu kadar sonra bitirilirse bitiş zamanı son set sayılır
 const WAIST_EVERY_DAYS = 14;
 
@@ -27,7 +27,8 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (n) => (n == null ? '–' : String(Math.round(n * 100) / 100).replace('.', ','));
 const rangeText = (reps) => (reps[0] === reps[1] ? String(reps[0]) : `${reps[0]}–${reps[1]}`);
-const fmtRest = (sec) => (sec >= 120 && sec % 60 === 0 ? `${sec / 60} dk` : `${sec} sn`);
+/** Dinlenme süresi her yerde aynı biçimde: 2:30, 1:15, 1:00 */
+const fmtRest = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const DAY_MS = 86400000;
 
@@ -75,6 +76,25 @@ function effortFor(slot, j, n, deload) {
   if (slot.effort === 'rir2') return L.rir2;
   if (slot.effort === 'lastFail') return j === n - 1 ? L.fail : L.rir12;
   return L.rir12;
+}
+
+const ico = (d) => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+const ICON = {
+  save: ico('<path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/>'),
+  note: ico('<path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/>'),
+  clock: ico('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  gear: ico('<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>'),
+  up: ico('<path d="M12 19V5M6 11l6-6 6 6"/>'),
+  back: ico('<path d="M9 14l-5-5 5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>'),
+  x: ico('<path d="M6 6l12 12M18 6L6 18"/>'),
+};
+
+/** Set listesi: kilolar aynıysa "20 kg × 6, 6, 6, 6"; farklıysa "20×10 · 22,5×9" (her set bölünmeden). */
+function setsText(sets, bw) {
+  if (!sets.length) return '';
+  if (bw || sets.every((x) => x.w == null)) return `<span class="nw">${sets.map((x) => fmt(x.r)).join(', ')}</span>`;
+  if (sets.every((x) => x.w === sets[0].w)) return `<span class="nw">${fmt(sets[0].w)} kg × ${sets.map((x) => fmt(x.r)).join(', ')}</span>`;
+  return sets.map((x) => `<span class="nw">${fmt(x.w)}×${fmt(x.r)}</span>`).join(' · ');
 }
 
 const CHECK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
@@ -532,14 +552,14 @@ function renderHome() {
     </header>
     ${renderMigrationBanner()}
     ${renderRenameReport()}
-    ${backupDue() ? `<button class="backup-hint" data-act="go-backup">💾 Son yedeğin üzerinden 14 günden fazla geçti. <b>Yedek al</b></button>` : ''}
+    ${backupDue() ? `<button class="backup-hint" data-act="go-backup">${ICON.save} Son yedeğin üzerinden 14 günden fazla geçti. <b>Yedek al</b></button>` : ''}
     ${renderSummary()}
     ${state.current ? renderResume() : ''}
 
     <section class="card hero ${state.current ? 'dim' : ''}">
       <div class="eyebrow">Sıradaki seans</div>
       <div class="hero-row">
-        <div class="hero-day">${esc(def.name.split(' ')[1] || '')}</div>
+        <div class="hero-day"><small>${esc(def.name.split(' ')[0] || '')}</small><b>${esc(def.name.split(' ')[1] || '')}</b></div>
         <div class="hero-info">
           <div class="hero-title">${esc(def.name)}</div>
           <div class="muted small">${def.slots.length} hareket</div>
@@ -625,7 +645,7 @@ function renderWorkout() {
       <div class="prog"><b id="prog">${done}/${total}</b><span>set</span></div>
     </div>
     <div class="progress"><div id="progbar" style="width:${total ? (done / total) * 100 : 0}%"></div></div>
-    <div class="wk-meta ${edit ? '' : 'has-view'}"><span>⏱ <span id="elapsed">${elapsedText(sess)}</span></span>${edit ? '<span>Değişiklikler hemen kaydedilir</span>' : `
+    <div class="wk-meta ${edit ? '' : 'has-view'}"><span>${ICON.clock} <span id="elapsed">${elapsedText(sess)}</span></span>${edit ? '<span>Değişiklikler hemen kaydedilir</span>' : `
       <div class="viewseg" role="group" aria-label="Görünüm">
         <button data-act="view" data-view="focus" class="${focus ? 'on' : ''}" aria-pressed="${focus}">Odak</button>
         <button data-act="view" data-view="list" class="${focus ? '' : 'on'}" aria-pressed="${!focus}">Tüm seans</button>
@@ -800,7 +820,7 @@ function renderFocus(sess, cur) {
         <div class="grow">
           <div class="ex-tags"><span class="kind">${esc(p.ex.muscle)}</span>${p.tags}</div>
           <h3>${esc(p.title)}</h3>
-          ${p.machine ? `<div class="machine-note">⚙ ${esc(p.machine)}</div>` : ''}
+          ${p.machine ? `<div class="machine-note">${ICON.gear} ${esc(p.machine)}</div>` : ''}
         </div>
       </div>
       <div class="ex-meta">${p.n} set × ${rangeText(p.sl.reps)} tekrar${p.ex.perSide ? ' (her kol)' : ''} · ${p.restText}</div>
@@ -843,6 +863,7 @@ function focusScroll() {
   const tm = document.getElementById('timer');
   let limit = tabs ? tabs.getBoundingClientRect().top : window.innerHeight;
   if (tm && !tm.hidden) limit = Math.min(limit, tm.getBoundingClientRect().top);
+  limit -= 58; // bildirim (toast) bu boşlukta çıkar, düğmeyi kapatmaz
   const r = blk.getBoundingClientRect();
   const top = r.top + window.scrollY, bottom = r.bottom + window.scrollY;
   window.scrollTo(0, Math.max(0, Math.min(bottom + 10 - limit, top - 8)));
@@ -955,7 +976,7 @@ function renderExercise(sess, e, i, parts) {
   let lastHtml;
   if (ref) {
     const ds = doneSets(ref.entry);
-    const vals = bodyweight ? ds.map((s) => `${fmt(s.r)}`).join(' · ') : ds.map((s) => `${fmt(s.w)}×${fmt(s.r)}`).join(' · ');
+    const vals = setsText(ds, bodyweight);
     lastHtml = `<div class="last">Son ${esc(sess.name)}${e.sub ? ' (yedek)' : ''}: <b>${vals}</b> <span>(${fmtDate(ref.session.finishedAt)}${ref.session.deload ? ', yük azaltma' : ''})</span></div>`;
   } else {
     lastHtml = `<div class="last">${e.sub ? 'Bu yedek hareketin' : 'Bu seansta'} henüz kaydı yok.</div>`;
@@ -963,7 +984,7 @@ function renderExercise(sess, e, i, parts) {
 
   let notes = '';
   const sug = live ? suggestion(sess, e) : null;
-  if (sug) notes += `<div class="note ${sug.kind === 'bump' || sug.kind === 'back' ? 'warn' : 'blue'} sug sug-${sug.kind}">${sug.kind === 'bump' ? '⬆ ' : sug.kind === 'back' ? '↩ ' : ''}${esc(sug.text)}</div>`;
+  if (sug) notes += `<div class="note ${sug.kind === 'bump' || sug.kind === 'back' ? 'warn' : 'blue'} sug sug-${sug.kind}">${sug.kind === 'bump' ? ICON.up + ' ' : sug.kind === 'back' ? ICON.back + ' ' : ''}${esc(sug.text)}</div>`;
   const sugHtml = notes;
   if (sess.deload) notes += `<div class="note blue">Yük azaltma: kilolar aynı, ${n} set, her set 3 tekrar kala bitir; tükeniş yok.</div>`;
   if (live) notes += warmupHtml(sl, e, i);
@@ -1049,7 +1070,7 @@ function renderExercise(sess, e, i, parts) {
         <div class="grow">
           <div class="ex-tags"><span class="kind">${esc(ex.muscle)}</span>${tags}</div>
           <h3>${esc(title)}</h3>
-          ${cfg.note ? `<div class="machine-note">⚙ ${esc(cfg.note)}</div>` : ''}
+          ${cfg.note ? `<div class="machine-note">${ICON.gear} ${esc(cfg.note)}</div>` : ''}
         </div>
       </div>
       <div class="ex-meta">${n} set × ${rangeText(sl.reps)} tekrar${ex.perSide ? ' (her kol)' : ''} · ${restText}</div>
@@ -1139,7 +1160,7 @@ function renderHistory() {
     const rows = s.entries.map((e) => {
       const ds = doneSets(e);
       const bw = exDef(e.ex) && exDef(e.ex).load === 'bodyweight';
-      const v = ds.length ? ds.map((x) => (bw ? `${fmt(x.r)}` : `${fmt(x.w)}×${fmt(x.r)}`)).join(' · ') : 'yapılmadı';
+      const v = ds.length ? setsText(ds, bw) : 'yapılmadı';
       const label = e.skipped ? 'atlandı' : v;
       return `<div class="hist-ex"><span>${e.sub ? '<span class="tag">Yedek</span> ' : ''}${esc(e.name)}</span><span class="v">${label}</span></div>`;
     }).join('');
@@ -1150,10 +1171,10 @@ function renderHistory() {
           <div class="muted small">${fmtDate(s.finishedAt, true)}</div>
         </div>
         ${rows}
-        ${s.note ? `<div class="hist-note">📝 ${esc(s.note)}</div>` : ''}
+        ${s.note ? `<div class="hist-note">${ICON.note} <span>${esc(s.note)}</span></div>` : ''}
         <div class="hist-actions">
-          <button class="btn hist-del" data-act="edit-session" data-id="${esc(s.id)}">Düzenle</button>
-          <button class="btn danger hist-del" data-act="del-session" data-id="${esc(s.id)}">Sil</button>
+          <button class="btn hist-edit" data-act="edit-session" data-id="${esc(s.id)}">Düzenle</button>
+          <button class="textbtn danger" data-act="del-session" data-id="${esc(s.id)}">Sil</button>
         </div>
       </section>`;
   }).join('');
@@ -1167,7 +1188,7 @@ function renderHistory() {
       ${archOpen ? `<div class="rules">${[...state.archive].reverse().map((a) => `
         <div class="arch">
           <div class="row-between"><b>${a.day} günü${a.week ? ' · Hafta ' + a.week : ''}${a.deload ? ' · yük azaltma' : ''}${a.partial ? ' · yarım kaldı' : ''}</b><span class="muted small">${fmtDate(a.finishedAt, true)}</span></div>
-          ${a.exercises.map((e) => { const ds = doneSets(e); return `<div class="hist-ex"><span>${esc(e.name)}</span><span class="v">${ds.length ? ds.map((x) => (x.w != null ? `${fmt(x.w)}×${fmt(x.r)}` : fmt(x.r))).join(' · ') : 'yapılmadı'}</span></div>`; }).join('')}
+          ${a.exercises.map((e) => { const ds = doneSets(e); return `<div class="hist-ex"><span>${esc(e.name)}</span><span class="v">${ds.length ? setsText(ds, false) : 'yapılmadı'}</span></div>`; }).join('')}
         </div>`).join('')}</div>` : ''}
     </section>` : '';
 
@@ -1257,7 +1278,7 @@ function renderTrack() {
 
   const entryRows = (list, key, unit) => [...list].reverse().slice(0, 14).map((m) => `
     <div class="hist-ex"><span>${fmtDate(m.date, true)}</span><span class="v">${fmt(m[key])} ${unit}
-      <button class="x" data-act="del-measure" data-kind="${key}" data-date="${m.date}" aria-label="${fmtDate(m.date)} kaydını sil">✕</button></span></div>`).join('');
+      <button class="x" data-act="del-measure" data-kind="${key}" data-date="${m.date}" aria-label="${fmtDate(m.date)} kaydını sil">${ICON.x}</button></span></div>`).join('');
 
   return `
     <h1 class="page-title">Takip</h1>
@@ -1320,7 +1341,7 @@ function renderWeekSummary() {
   const rows = Object.entries(PROGRAM.weeklyTargets).map(([m, target]) => {
     const v = st.sets[m] || 0;
     const pct = Math.min(100, Math.round((v / target) * 100));
-    return `<div class="wk-row"><span class="wk-m">${esc(m)}</span><span class="wk-bar"><span style="width:${pct}%"></span></span><span class="wk-v ${v >= target ? 'full' : ''}">${v}/${target}</span></div>`;
+    return `<div class="wk-row"><span class="wk-m">${esc(m.split(' (')[0])}${m.includes(' (') ? `<small>${esc(m.split(' (')[1].replace(')', ''))}</small>` : ''}</span><span class="wk-bar"><span style="width:${pct}%"></span></span><span class="wk-v ${v >= target ? 'full' : ''}">${v}/${target}</span></div>`;
   }).join('');
   return `
     <section class="card">
@@ -1408,6 +1429,36 @@ function addMeasure(kind) {
   save(); render(); toast('Kaydedildi');
 }
 
+
+/* ---------------- Onay paneli (alttan açılır) ---------------- */
+
+let sheetResolve = null;
+/** confirm() yerine: uygulamanın kendi onay paneli. true/false döndüren Promise. */
+function ask({ title, text = '', ok = 'Tamam', cancel = 'Vazgeç', danger = false }) {
+  closeSheet(false);
+  let el = document.getElementById('sheet');
+  if (!el) { el = document.createElement('div'); el.id = 'sheet'; el.className = 'sheet-wrap'; document.body.appendChild(el); }
+  el.innerHTML = `
+    <div class="sheet-back" data-act="sheet-cancel"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <div class="sheet-grab"></div>
+      <h2 id="sheetTitle">${esc(title)}</h2>
+      ${text ? `<p>${esc(text).replace(/\n/g, '<br>')}</p>` : ''}
+      <button class="btn ${danger ? 'danger solid' : 'primary'}" data-act="sheet-ok">${esc(ok)}</button>
+      <button class="btn ghost" data-act="sheet-cancel">${esc(cancel)}</button>
+    </div>`;
+  el.hidden = false;
+  document.body.classList.add('sheet-open');
+  return new Promise((resolve) => { sheetResolve = resolve; });
+}
+
+function closeSheet(result) {
+  const el = document.getElementById('sheet');
+  if (el) { el.hidden = true; el.innerHTML = ''; }
+  document.body.classList.remove('sheet-open');
+  const r = sheetResolve; sheetResolve = null;
+  if (r) r(!!result);
+}
 
 /* ---------------- Toast ---------------- */
 
@@ -1649,17 +1700,19 @@ function stepValue(i, j, f, d) {
   if (f === 'w') ui.prevW = s.w;
 }
 
-function finishWorkout() {
+async function finishWorkout() {
   const cur = state.current;
   clearUndo();
   const { total, done } = countSets(cur);
   const anyDone = cur.entries.some((e) => e.sets.some((s) => s.done));
   if (!anyDone) {
-    if (!confirm('Hiç set tamamlanmadı. Seans kaydedilmeden kapatılsın mı?')) return;
+    if (!(await ask({ title: 'Hiç set tamamlanmadı', text: 'Seans kaydedilmeden kapatılsın mı?', ok: 'Kaydetmeden kapat', danger: true }))) return;
+    if (state.current !== cur) return;
     state.current = null;
     ui.summary = null;
   } else {
-    if (done < total && !confirm(`${total - done} set tamamlanmadı. Yine de bitirip kaydedeyim mi?`)) return;
+    if (done < total && !(await ask({ title: `${total - done} set tamamlanmadı`, text: 'Seans yine de bitirilip kaydedilsin mi?', ok: 'Bitir ve kaydet' }))) return;
+    if (state.current !== cur) return;
     // "Bitir"e basmak unutulduysa: bitiş zamanı son tamamlanan setin zamanı sayılır
     const now = Date.now();
     const last = cur.lastAt ? Date.parse(cur.lastAt) : NaN;
@@ -1709,12 +1762,13 @@ function moveEntry(i, mode) {
 }
 
 /** Bugün yedeğini yap / asıl harekete dön. Yedeğin kaydı ayrı tutulur. */
-function toggleSub(i) {
+async function toggleSub(i) {
   const sess = activeSess();
   const e = sess.entries[i];
   const ex = exDef(e.ex);
   if (ex.noSub) return;
-  if (e.sets.some((s) => s.done) && !confirm('Bu harekette girilen setler silinecek. Devam edilsin mi?')) return;
+  if (e.sets.some((s) => s.done) && !(await ask({ title: e.sub ? 'Asıl harekete dönülsün mü?' : 'Yedek harekete geçilsin mi?', text: 'Bu harekette girdiğin setler silinecek.', ok: 'Setleri sil ve geç', danger: true }))) return;
+  if (activeSess() !== sess || sess.entries[i] !== e) return;
   e.sub = !e.sub;
   e.name = e.sub ? ex.sub : ex.name;
   e.sets = prefillSets(sess.type, slotDef(sess.type, e.slot), e.sets.length, e.sub);
@@ -1724,10 +1778,11 @@ function toggleSub(i) {
 }
 
 /** İsteğe bağlı hareketi bugün atla / geri al. Atlanınca seans eksik sayılmaz. */
-function toggleSkip(i) {
+async function toggleSkip(i) {
   const sess = activeSess();
   const e = sess.entries[i];
-  if (!e.skipped && e.sets.some((s) => s.done) && !confirm('Bu harekette girilen setler silinecek. Atlansın mı?')) return;
+  if (!e.skipped && e.sets.some((s) => s.done) && !(await ask({ title: 'Hareket atlansın mı?', text: 'Bu harekette girdiğin setler silinecek.', ok: 'Setleri sil ve atla', danger: true }))) return;
+  if (activeSess() !== sess || sess.entries[i] !== e) return;
   e.skipped = !e.skipped;
   if (e.skipped) e.sets.forEach((s) => { s.done = false; });
   save(); render();
@@ -1801,13 +1856,13 @@ function downloadPreBackup(key) {
 
 function importData(file) {
   const reader = new FileReader();
-  reader.onload = () => {
+  reader.onload = async () => {
     try {
       const parsed = JSON.parse(reader.result);
       const data = parsed && parsed.data ? parsed.data : parsed;
       const next = migrate(data);
-      const msg = `Yedekte ${next.sessions.length} seans, ${next.archive.length} arşiv kaydı, ${next.body.length} kilo ve ${next.waist.length} bel kaydı var.\n\nBu telefondaki mevcut veriler yedektekiyle DEĞİŞTİRİLSİN mi?`;
-      if (!confirm(msg)) return;
+      const msg = `Yedekte ${next.sessions.length} seans, ${next.archive.length} arşiv kaydı, ${next.body.length} kilo ve ${next.waist.length} bel kaydı var.\nBu telefondaki mevcut veriler silinip yedektekiyle değiştirilecek.`;
+      if (!(await ask({ title: 'Veriler yedekle değiştirilsin mi?', text: msg, ok: 'Değiştir', danger: true }))) return;
       if (next.migration) next.migration.dismissed = true;
       if (next.renameReport) next.renameReport.dismissed = true;
       next.timer = null; // yedekteki eski sayaç geri gelmesin
@@ -1834,7 +1889,8 @@ document.addEventListener('click', (ev) => {
 
   switch (act) {
     case 'tab':
-      if (ui.editId && el.dataset.tab !== 'history') { ui.editId = null; ui.editBackup = null; clearUndo(); }
+      if (ui.editId && el.dataset.tab !== 'history') { ui.editId = null; ui.editBackup = null; }
+      if (el.dataset.tab !== ui.tab) clearUndo(); // "Geri al" bildirimi başka sekmeye taşınmasın
       ui.tab = el.dataset.tab; render(); window.scrollTo(0, 0); break;
     case 'type':
       ui.typeChoice = el.dataset.type === nextTypeAuto() ? null : el.dataset.type; render(); break;
@@ -1857,6 +1913,8 @@ document.addEventListener('click', (ev) => {
       break;
     case 'step':
       if (activeSess()) stepValue(Number(el.dataset.ex), Number(el.dataset.set), el.dataset.f, Number(el.dataset.d)); break;
+    case 'sheet-ok': closeSheet(true); break;
+    case 'sheet-cancel': closeSheet(false); break;
     case 'undo': {
       const fn = ui.undo; ui.undo = null; $('#toast').hidden = true;
       if (fn) fn();
@@ -1950,7 +2008,7 @@ document.addEventListener('click', (ev) => {
     case 'edit-session': startEdit(el.dataset.id); break;
     case 'edit-done': endEdit(false); break;
     case 'edit-revert':
-      if (confirm('Bu düzenlemede yaptığın tüm değişiklikler geri alınsın mı?')) endEdit(true);
+      ask({ title: 'Değişiklikler geri alınsın mı?', text: 'Bu düzenlemede yaptığın tüm değişiklikler silinir.', ok: 'Geri al', danger: true }).then((y) => { if (y && ui.editId) endEdit(true); });
       break;
     case 'toggle': {
       const k = el.dataset.key;
@@ -1960,29 +2018,37 @@ document.addEventListener('click', (ev) => {
     case 'finish':
       if (cur) finishWorkout(); break;
     case 'cancel':
-      if (cur && confirm('Seans iptal edilsin mi? Bu seansta girdiğin setler silinir.')) {
+      if (cur) ask({ title: 'Seans iptal edilsin mi?', text: 'Bu seansta girdiğin setler silinir.', ok: 'Seansı iptal et', danger: true }).then((y) => {
+        if (!y || state.current !== cur) return;
         clearUndo();
         state.current = null; ui.inWorkout = false; stopTimer(); save(); render(); window.scrollTo(0, 0);
-      }
+      });
       break;
     case 't-minus': adjustTimer(-15); break;
     case 't-plus': adjustTimer(15); break;
     case 't-skip': stopTimer(); break;
     case 'del-session':
-      if (confirm('Bu seans kaydı silinsin mi?')) {
-        state.sessions = state.sessions.filter((s) => s.id !== el.dataset.id);
-        save(); render();
+      {
+        const id = el.dataset.id;
+        const ss = state.sessions.find((x) => x.id === id);
+        ask({ title: 'Seans kaydı silinsin mi?', text: ss ? `${ss.name}, ${fmtDate(ss.finishedAt, true)}. Geri alınamaz.` : '', ok: 'Kaydı sil', danger: true }).then((y) => {
+          if (!y) return;
+          state.sessions = state.sessions.filter((x) => x.id !== id);
+          save(); render();
+        });
       }
       break;
     case 'add-measure':
       addMeasure(el.dataset.kind); break;
     case 'del-measure': {
       const isKg = el.dataset.kind === 'kg';
-      if (confirm(`${fmtDate(el.dataset.date)} tarihli ${isKg ? 'kilo' : 'bel'} kaydı silinsin mi?`)) {
-        if (isKg) state.body = state.body.filter((m) => m.date !== el.dataset.date);
-        else state.waist = state.waist.filter((m) => m.date !== el.dataset.date);
+      const date = el.dataset.date;
+      ask({ title: `${isKg ? 'Kilo' : 'Bel'} kaydı silinsin mi?`, text: `${fmtDate(date, true)} tarihli kayıt.`, ok: 'Kaydı sil', danger: true }).then((y) => {
+        if (!y) return;
+        if (isKg) state.body = state.body.filter((m) => m.date !== date);
+        else state.waist = state.waist.filter((m) => m.date !== date);
         save(); render();
-      }
+      });
       break;
     }
     case 'dl-pre-backup': downloadPreBackup(el.dataset.key); break;
@@ -1998,10 +2064,14 @@ document.addEventListener('click', (ev) => {
     case 'export': exportData(); break;
     case 'import': $('#importFile').click(); break;
     case 'wipe':
-      if (confirm('TÜM kayıtlar (seanslar, arşiv, kilo, bel) silinsin mi? Bu işlem geri alınamaz.') && confirm('Emin misin? Önce yedek almanı öneririm.')) {
-        state = defaultState(); stopTimer(); save();
-        ui.typeChoice = null; ui.summary = null; ui.inWorkout = false; ui.open.clear(); render(); toast('Tüm veriler silindi');
-      }
+      // İki adımlı onay
+      ask({ title: 'Tüm veriler silinsin mi?', text: 'Seanslar, arşiv, kilo ve bel kayıtlarının hepsi bu telefondan silinir. Geri alınamaz.', ok: 'Devam', danger: true })
+        .then((y) => y && ask({ title: 'Emin misin?', text: 'Önce yedek almanı öneririm. Bu adımdan sonra geri dönüş yok.', ok: 'Hepsini sil', danger: true }))
+        .then((y) => {
+          if (!y) return;
+          state = defaultState(); stopTimer(); save();
+          ui.typeChoice = null; ui.summary = null; ui.inWorkout = false; ui.open.clear(); render(); toast('Tüm veriler silindi');
+        });
       break;
   }
 });
@@ -2040,7 +2110,7 @@ document.addEventListener('change', (ev) => {
     if (h3) {
       let el = card.querySelector('.machine-note');
       if (note && !el) { el = document.createElement('div'); el.className = 'machine-note'; h3.after(el); }
-      if (el) { if (note) el.textContent = '⚙ ' + note; else el.remove(); }
+      if (el) { if (note) el.innerHTML = `${ICON.gear} ${esc(note)}`; else el.remove(); }
     }
     toast('Makine ayarı notu kaydedildi');
     return;
@@ -2104,6 +2174,7 @@ document.addEventListener('change', (ev) => {
 
 // Klavyedeki "ileri/bitti" tuşu: sonraki alana geç
 document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape' && sheetResolve) { closeSheet(false); return; }
   if (ev.key === 'Enter' && (ev.target.id === 'bodyVal' || ev.target.id === 'waistVal')) {
     ev.preventDefault();
     addMeasure(ev.target.id === 'bodyVal' ? 'kg' : 'cm');
