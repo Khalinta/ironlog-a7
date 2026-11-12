@@ -8,7 +8,7 @@
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
 const DATA_VERSION = 4;
 const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4']; // sürüm geçişlerinden önceki birebir kopyalar
-const APP_VERSION = '4.9.0';
+const APP_VERSION = '4.10.0';
 const LATE_FINISH_MS = 30 * 60000;      // son setten bu kadar sonra bitirilirse bitiş zamanı son set sayılır
 const WAIST_EVERY_DAYS = 14;
 
@@ -101,6 +101,30 @@ function setsText(sets, bw) {
 const CHECK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 
 /* ---------------- Durum (localStorage) ---------------- */
+
+/** Plaka hesaplayıcının tanıdığı plaka boyları (kg). */
+const PLATE_SIZES = [20, 15, 10, 5, 2.5, 1.25];
+
+/**
+ * Hareket ayarının tek biçimi. Yeni alan eklenirse SADECE buraya eklenir:
+ * açılışta (migrate), yedekten geri yüklemede ve her kayıtta aynı fonksiyon kullanılır.
+ */
+function normCfg(v) {
+  v = v && typeof v === 'object' ? v : {};
+  const num = (x, lo, hi) => (typeof x === 'number' && Number.isFinite(x) && x >= lo && x <= hi ? x : null);
+  let plates = null; // null = bütün plakalar var
+  if (Array.isArray(v.plates)) {
+    const p = PLATE_SIZES.filter((k) => v.plates.includes(k));
+    if (p.length && p.length < PLATE_SIZES.length) plates = p;
+  }
+  return {
+    bigStep: !!v.bigStep,
+    note: typeof v.note === 'string' ? v.note.slice(0, 300) : '',
+    step: num(v.step, 0.25, 50),
+    bar: num(v.bar, 0.25, 100),   // boş bar / kızak ağırlığı; null = girilmedi
+    plates,
+  };
+}
 
 function defaultState() {
   return { version: DATA_VERSION, sessions: [], archive: [], current: null, timer: null, body: [], waist: [], migration: null,
@@ -229,8 +253,7 @@ function migrate(raw) {
       Object.keys(raw.exSettings).forEach((k) => {
         const v = raw.exSettings[k];
         if (!exDef(k) || !v || typeof v !== 'object') return;
-        const stp = typeof v.step === 'number' && Number.isFinite(v.step) && v.step >= 0.25 && v.step <= 50 ? v.step : null;
-        st.exSettings[k] = { bigStep: !!v.bigStep, note: typeof v.note === 'string' ? v.note.slice(0, 300) : '', step: stp };
+        st.exSettings[k] = normCfg(v);
       });
     }
     return st;
@@ -846,6 +869,7 @@ function renderFocus(sess, cur) {
           ${bw ? '' : `<div class="fx-field"><span class="fx-lbl">kg <small>(±${fmt(weightStep(e.ex))})</small></span>${stepper(i, j, 'w', s.w, `Set ${j + 1} ağırlık`)}</div>`}
           <div class="fx-field"><span class="fx-lbl">${p.ex.perSide ? 'tekrar / kol' : 'tekrar'}</span>${stepper(i, j, 'r', s.r, `Set ${j + 1} tekrar`, !s.rt)}</div>
         </div>
+        ${plateLine(e, i, j)}
         ${action}
       </div>
       <div class="fx-strip" id="fx-strip" data-ex="${i}" data-set="${j}">${focusStrip(sess, i, j)}</div>
@@ -947,6 +971,80 @@ function stepper(i, j, f, value, label, pre) {
     </div>`;
 }
 
+/* ---------------- Plaka hesaplayıcı ---------------- */
+
+const plateList = (exId) => exCfg(exId).plates || PLATE_SIZES;
+const barOf = (exId) => { const b = exCfg(exId).bar; return typeof b === 'number' && b > 0 ? b : null; };
+/** Plaka satırı yalnızca plakayla yüklenen asıl harekette görünür (yedek hareket başka alet olabilir). */
+const plateOn = (e) => !!(e && !e.sub && exDef(e.ex) && exDef(e.ex).load === 'plate');
+
+/**
+ * Bir yana takılacak plakalar: hedefe (kg) eşit ya da en yakın alt birleşim, en az sayıda plakayla, büyükten küçüğe.
+ * 0,25 kg'lık birimlerle tam sayı hesabı yapar (ondalık yuvarlama hatası olmasın diye).
+ */
+function plateCombo(sideKg, sizes) {
+  const T = Math.max(0, Math.floor(sideKg * 4 + 1e-6));
+  const units = sizes.map((x) => Math.round(x * 4)).sort((a, b) => b - a);
+  const cnt = new Array(T + 1).fill(Infinity);
+  cnt[0] = 0;
+  for (let t = 1; t <= T; t++) for (const u of units) if (u <= t && cnt[t - u] + 1 < cnt[t]) cnt[t] = cnt[t - u] + 1;
+  let best = T;
+  while (best > 0 && cnt[best] === Infinity) best--;
+  const list = [];
+  let t = best;
+  while (t > 0) {
+    const u = units.find((x) => x <= t && cnt[t - x] === cnt[t] - 1);
+    list.push(u / 4);
+    t -= u;
+  }
+  return { list, missing: Math.round((sideKg - best / 4) * 100) / 100 };
+}
+
+/** Yazılan kilo için plaka dökümü. Bar ağırlığı girildiyse kilo TOPLAM sayılır, girilmediyse sadece plakalar. */
+function plateInfo(exId, w) {
+  if (w == null || !Number.isFinite(w)) return null;
+  const bar = barOf(exId);
+  if (bar != null && w < bar - 1e-9) return { warn: true, text: `Bar ağırlığından (${fmt(bar)} kg) az: kiloyu ya da bar ağırlığını kontrol et` };
+  const side = (w - (bar || 0)) / 2;
+  if (side < 1e-9) return bar != null ? { text: 'Boş bar' } : null;
+  const c = plateCombo(side, plateList(exId));
+  const sum = c.list.length ? c.list.map(fmt).join(' + ') : 'plaka yok';
+  return { text: `Her yana: ${sum}${c.missing > 0 ? ` (tam tutmuyor, her yanda ${fmt(c.missing)} eksik)` : ''}`, warn: c.missing > 0, combo: c };
+}
+
+function plateLine(e, i, j) {
+  if (!plateOn(e)) return '';
+  const info = plateInfo(e.ex, e.sets[j].w);
+  return `<div class="plates${info && info.warn ? ' warn' : ''}" id="pl-${i}-${j}">${info ? esc(info.text) : ''}</div>`;
+}
+
+/** Kilo değişince (artı/eksi ya da klavye) plaka satırını ve ısınma kutusunu sayfayı yenilemeden günceller. */
+function refreshWeightInfo(i, j) {
+  const sess = activeSess();
+  const e = sess && sess.entries[i];
+  if (!e) return;
+  const pl = document.getElementById(`pl-${i}-${j}`);
+  if (pl) pl.outerHTML = plateLine(e, i, j);
+  const wu = document.getElementById(`warm-${i}`);
+  if (wu && j === 0) wu.outerHTML = warmupHtml(slotDef(sess.type, e.slot), e, i);
+}
+
+/** Bar ağırlığı ya da plaka listesi değişince o hareketin bütün satırlarını yerinde yeniler. */
+function refreshPlateCard(i) {
+  const sess = activeSess();
+  const e = sess && sess.entries[i];
+  if (!e) return;
+  e.sets.forEach((_, j) => { const pl = document.getElementById(`pl-${i}-${j}`); if (pl) pl.outerHTML = plateLine(e, i, j); });
+  const wu = document.getElementById(`warm-${i}`);
+  if (wu) wu.outerHTML = warmupHtml(slotDef(sess.type, e.slot), e, i);
+  const bi = document.getElementById(`barinfo-${i}`);
+  if (bi) bi.textContent = barInfoText(e.ex);
+}
+
+const barInfoText = (exId) => (barOf(exId) != null
+  ? `Bar ağırlığı girili: yazdığın kilo toplam ağırlık sayılır (bar dahil). Her yana (kilo − ${fmt(barOf(exId))}) ÷ 2 takılır.`
+  : 'Bar ağırlığı boş: yazdığın kilo sadece plakaların toplamı sayılır. Her yana kilonun yarısı takılır.');
+
 /** Isınma setleri: çalışma kilosunun yüzdesiyle hesaplanır (kaydedilmez). */
 function warmupHtml(sl, e, i) {
   if (!sl.warmup) return '';
@@ -957,10 +1055,23 @@ function warmupHtml(sl, e, i) {
     if (p.bar) return `Boş bar × ${p.reps}`;
     if (p.light) return `Çok hafif × ${p.reps}`;
     if (w == null || e.sub) return `%${p.pct} × ${p.reps}`;
+    if (plateOn(e)) {
+      // Plakalı hareket: yüzde toplam kilodan alınır, takılabilir en yakın alt birleşime indirilir
+      const bar = barOf(e.ex) || 0;
+      const side = Math.max(0, ((w * p.pct) / 100 - bar) / 2);
+      let c = plateCombo(side, plateList(e.ex));
+      // Isınma yaklaşık bir değer: alttaki ve bir üstteki birleşimden hedefe yakın olanı seç
+      const low = c.list.reduce((a, x) => a + x, 0);
+      const up = low + Math.min(...plateList(e.ex));
+      if (c.missing > 0 && up - side < side - low) c = plateCombo(up, plateList(e.ex));
+      if (!c.list.length) return bar ? `Boş bar (%${p.pct}) × ${p.reps}` : `%${p.pct} × ${p.reps}`;
+      const tot = bar + 2 * c.list.reduce((a, x) => a + x, 0);
+      return `≈${fmt(tot)} kg (%${p.pct}) × ${p.reps} [her yana ${c.list.map(fmt).join(' + ')}]`;
+    }
     const kg = Math.max(0, Math.round((w * p.pct) / 100 / step) * step);
     return `≈${fmt(Math.round(kg * 100) / 100)} kg (%${p.pct}) × ${p.reps}`;
   });
-  return `<div class="note blue warm" id="warm-${i}"><b>Isınma (kaydedilmez):</b> ${parts.length ? `<span class="warm-sets">${parts.map(esc).join(' → ')}</span>` : ''}<span class="note-sub2">${esc(sl.warmup.text)}</span></div>`;
+  return `<div class="note blue warm" id="warm-${i}"><b>Isınma<span class="warm-nk"> (kaydedilmez)</span>:</b> ${parts.length ? `<span class="warm-sets">${parts.map(esc).join(' → ')}</span>` : ''}<span class="note-sub2">${esc(sl.warmup.text)}</span></div>`;
 }
 
 /** parts = true: kartın parçalarını nesne olarak döndürür (odak görünümü aynı parçaları kullanır). */
@@ -1035,6 +1146,7 @@ function renderExercise(sess, e, i, parts) {
         ${bodyweight ? '' : stepper(i, j, 'w', s.w, `Set ${j + 1} ağırlık`)}
         ${stepper(i, j, 'r', s.r, `Set ${j + 1} tekrar`, live && !s.rt)}
       </div>
+      ${plateLine(e, i, j)}
     </div>`;
   }).join('');
 
@@ -1069,6 +1181,12 @@ function renderExercise(sess, e, i, parts) {
       <input class="text-in" id="exstep-${i}" data-exstep="${e.ex}" type="text" inputmode="decimal" autocomplete="off" maxlength="5" placeholder="${defStep}" value="${cfg.step ? fmt(cfg.step) : ''}">
       <p class="muted small" style="margin-top:6px">Bu makinede artı/eksi düğmesinin kaç kg değiştireceği. Makinenin bir plakası kaç kg ise onu yaz. Boş bırakırsan varsayılan (${defStep} kg) kullanılır.</p>`;
       })()}
+      ${plateOn(e) ? `<label class="note-label" for="exbar-${i}" style="margin-top:12px">Boş bar / kızak ağırlığı (kg)</label>
+      <input class="text-in" id="exbar-${i}" data-exbar="${e.ex}" type="text" inputmode="decimal" autocomplete="off" maxlength="5" placeholder="boş" value="${cfg.bar ? fmt(cfg.bar) : ''}">
+      <p class="muted small" id="barinfo-${i}" style="margin-top:6px">${esc(barInfoText(e.ex))}</p>
+      <div class="note-label" style="margin-top:12px">Salondaki plakalar (kg)</div>
+      <div class="plate-chips">${PLATE_SIZES.map((k) => { const on = plateList(e.ex).includes(k); return `<button class="pchip${on ? ' on' : ''}" data-act="plate" data-ex-id="${e.ex}" data-p="${k}" aria-pressed="${on}">${fmt(k)}</button>`; }).join('')}</div>
+      <p class="muted small" style="margin-top:6px">Salonunda olmayan plakayı kapat; hesap yalnızca açık olanlarla yapılır.</p>` : ''}
       ${bodyweight ? '' : `<div class="row-between" style="margin-top:12px"><span>Büyük ağırlık adımı</span><button class="switch ${big ? 'on' : ''}" data-act="bigstep" data-ex-id="${e.ex}" role="switch" aria-checked="${big}" aria-label="Büyük ağırlık adımı"><span></span></button></div>
       <p class="muted small" style="margin-top:8px">Açıkken artırma önerisi, bütün setlerde üst sınırın 2 tekrar üstüne (${sl.reps[1] + PROGRAM.bigStep.extraReps}) çıkınca verilir. ${esc(PROGRAM.bigStep.text)}</p>`}
     </div>`;
@@ -1785,8 +1903,7 @@ function setRowRefresh(i, j, force) {
   row.classList.toggle('just', isJust(sess.entries[i], j));
   const card = document.getElementById(`ex-${i}`);
   if (card) card.classList.toggle('all-done', sess.entries[i].sets.every((x) => x.done));
-  const wu = document.getElementById(`warm-${i}`);
-  if (wu && j === 0) { const sl0 = slotDef(sess.type, sess.entries[i].slot); wu.outerHTML = warmupHtml(sl0, sess.entries[i], i); }
+  refreshWeightInfo(i, j);
   const tg = document.getElementById(`tgt-${i}-${j}`);
   if (tg) tg.textContent = setTarget(sess, sess.entries[i], j);
   ['w', 'r'].forEach((f) => {
@@ -2137,9 +2254,25 @@ document.addEventListener('click', (ev) => {
     case 'bigstep': {
       const id = el.dataset.exId;
       if (!exDef(id)) break;
-      state.exSettings[id] = Object.assign({ bigStep: false, note: '', step: null }, exCfg(id));
+      state.exSettings[id] = normCfg(exCfg(id));
       state.exSettings[id].bigStep = !state.exSettings[id].bigStep;
       save(); render();
+      break;
+    }
+    case 'plate': {
+      // Salondaki plakalar: aç/kapat (kalıcı). En az bir plaka açık kalır.
+      const id = el.dataset.exId, k = Number(el.dataset.p);
+      if (!exDef(id) || !PLATE_SIZES.includes(k)) break;
+      const now = plateList(id);
+      const next = now.includes(k) ? now.filter((x) => x !== k) : PLATE_SIZES.filter((x) => x === k || now.includes(x));
+      if (!next.length) { toast('En az bir plaka açık kalmalı'); break; }
+      state.exSettings[id] = normCfg(Object.assign({}, exCfg(id), { plates: next }));
+      save();
+      const on = next.includes(k);
+      el.classList.toggle('on', on);
+      el.setAttribute('aria-pressed', on);
+      const card = el.closest('.ex');
+      if (card) refreshPlateCard(Number(card.id.replace('ex-', '')));
       break;
     }
     case 'chart': chartTap(el, ev); break;
@@ -2268,6 +2401,7 @@ document.addEventListener('input', (ev) => {
   if (inp.dataset.f === 'w') s.w = parseNum(inp.value);
   else { s.r = parseNum(inp.value, true); s.rt = true; inp.classList.remove('pre'); }
   save();
+  if (inp.dataset.f === 'w') refreshWeightInfo(Number(inp.dataset.ex), Number(inp.dataset.set));
 });
 
 document.addEventListener('change', (ev) => {
@@ -2275,7 +2409,7 @@ document.addEventListener('change', (ev) => {
   if (inp.dataset && inp.dataset.exnote) {
     const id = inp.dataset.exnote;
     if (!exDef(id)) return;
-    state.exSettings[id] = Object.assign({ bigStep: false, note: '', step: null }, exCfg(id));
+    state.exSettings[id] = normCfg(exCfg(id));
     const note = inp.value.trim().slice(0, 300);
     state.exSettings[id].note = note;
     save();
@@ -2287,6 +2421,28 @@ document.addEventListener('change', (ev) => {
       if (el) { if (note) el.innerHTML = `${ICON.gear} ${esc(note)}`; else el.remove(); }
     }
     toast('Makine ayarı notu kaydedildi');
+    return;
+  }
+  if (inp.dataset && inp.dataset.exbar) {
+    const id = inp.dataset.exbar;
+    if (!exDef(id)) return;
+    const raw = inp.value.trim();
+    const prev = exCfg(id).bar;
+    let val = null;
+    if (raw !== '') {
+      val = parseNum(raw);
+      if (val == null || !Number.isFinite(val) || val < 0.25 || val > 100) {
+        inp.value = prev ? fmt(prev) : '';
+        toast('Bar ağırlığı 0,25 ile 100 kg arasında olmalı (yoksa boş bırak)');
+        return;
+      }
+    }
+    state.exSettings[id] = normCfg(Object.assign({}, exCfg(id), { bar: val }));
+    save();
+    inp.value = val ? fmt(val) : '';
+    const card = inp.closest('.ex');
+    if (card) refreshPlateCard(Number(card.id.replace('ex-', '')));
+    toast(val ? 'Bar ağırlığı kaydedildi' : 'Bar ağırlığı silindi');
     return;
   }
   if (inp.dataset && inp.dataset.exstep) {
@@ -2303,7 +2459,7 @@ document.addEventListener('change', (ev) => {
         return;
       }
     }
-    state.exSettings[id] = Object.assign({ bigStep: false, note: '', step: null }, exCfg(id));
+    state.exSettings[id] = normCfg(exCfg(id));
     state.exSettings[id].step = val;
     save();
     inp.value = val ? fmt(val) : '';

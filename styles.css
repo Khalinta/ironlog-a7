@@ -627,3 +627,14 @@ body.sheet-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Plaka hesaplayıcı */
+.plates { margin: 8px 2px 0; font-size: 13px; font-weight: 650; color: var(--muted); font-variant-numeric: tabular-nums; }
+.plates:empty { display: none; }
+.plates.warn { color: var(--text2); }
+.fx-set .plates { text-align: center; font-size: 14px; }
+.plate-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.pchip { min-width: 52px; min-height: 44px; padding: 0 12px; border-radius: 22px; border: 1px solid var(--line); background: transparent; color: var(--dim); font-size: 15px; font-weight: 750; font-variant-numeric: tabular-nums; text-decoration: line-through; }
+.pchip.on { background: var(--sel-bg); border-color: var(--sel-line); color: var(--text); text-decoration: none; }
+.fx .warm .warm-nk { display: none; }
+.fx .warm .warm-sets { display: inline; margin: 0; }
