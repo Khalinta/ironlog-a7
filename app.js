@@ -8,7 +8,7 @@
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
 const DATA_VERSION = 4;
 const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4']; // sürüm geçişlerinden önceki birebir kopyalar
-const APP_VERSION = '4.10.0';
+const APP_VERSION = '4.11.0';
 const LATE_FINISH_MS = 30 * 60000;      // son setten bu kadar sonra bitirilirse bitiş zamanı son set sayılır
 const WAIST_EVERY_DAYS = 14;
 
@@ -91,11 +91,14 @@ const ICON = {
 };
 
 /** Set listesi: kilolar aynıysa "20 kg × 6, 6, 6, 6"; farklıysa "20×10 · 22,5×9" (her set bölünmeden). */
-function setsText(sets, bw) {
+/** rec (isteğe bağlı): setlerle aynı sırada rekor işaretleri; rekor setin tekrarı vurgulanır, sona "Rekor" etiketi eklenir. */
+function setsText(sets, bw, rec) {
   if (!sets.length) return '';
-  if (bw || sets.every((x) => x.w == null)) return `<span class="nw">${sets.map((x) => fmt(x.r)).join(', ')}</span>`;
-  if (sets.every((x) => x.w === sets[0].w)) return `<span class="nw">${fmt(sets[0].w)} kg × ${sets.map((x) => fmt(x.r)).join(', ')}</span>`;
-  return sets.map((x) => `<span class="nw">${fmt(x.w)}×${fmt(x.r)}</span>`).join(' · ');
+  const r = (x, k) => (rec && rec[k] ? `<b class="rec-v">${fmt(x.r)}</b>` : fmt(x.r));
+  const tag = rec && rec.some(Boolean) ? ' <span class="rec-tag">Rekor</span>' : '';
+  if (bw || sets.every((x) => x.w == null)) return `<span class="nw">${sets.map(r).join(', ')}</span>${tag}`;
+  if (sets.every((x) => x.w === sets[0].w)) return `<span class="nw">${fmt(sets[0].w)} kg × ${sets.map(r).join(', ')}</span>${tag}`;
+  return sets.map((x, k) => `<span class="nw">${fmt(x.w)}×${r(x, k)}</span>`).join(' · ') + tag;
 }
 
 const CHECK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
@@ -758,10 +761,12 @@ function focusNextHtml(sess, cur) {
 function focusStrip(sess, i, j) {
   const e = sess.entries[i];
   const bw = exDef(e.ex).load === 'bodyweight';
+  const recs = recordFlags(sess)[i];
   return e.sets.map((s, k) => {
     // İnce şerit: yapılan set "✓ 8", şimdiki "Set 2", kalanlar sıra numarası
-    const v = s.done ? `${CHECK_SVG}<span>${s.r == null ? '–' : s.r}</span>` : (k === j ? `<span>Set ${k + 1}</span>` : `<span>${k + 1}</span>`);
-    return `<button class="fx-chip${s.done ? ' done' : ''}${k === j ? ' cur' : ''}${s.done && isJust(e, k) ? ' just' : ''}" data-act="focus-set" data-slot="${esc(e.slot)}" data-set="${k}" aria-label="Set ${k + 1}${s.done ? `: ${bw ? '' : fmt(s.w) + ' kg × '}${s.r} tekrar, düzelt` : ''}">${v}</button>`;
+    const rec = s.done && recs[k];
+    const v = s.done ? `<span class="fx-cv">${CHECK_SVG}<span>${s.r == null ? '–' : s.r}</span></span>${rec ? '<small>Rekor</small>' : ''}` : (k === j ? `<span>Set ${k + 1}</span>` : `<span>${k + 1}</span>`);
+    return `<button class="fx-chip${s.done ? ' done' : ''}${rec ? ' rec-chip' : ''}${k === j ? ' cur' : ''}${s.done && isJust(e, k) ? ' just' : ''}" data-act="focus-set" data-slot="${esc(e.slot)}" data-set="${k}" aria-label="Set ${k + 1}${s.done ? `: ${bw ? '' : fmt(s.w) + ' kg × '}${s.r} tekrar${rec ? ', rekor' : ''}, düzelt` : ''}">${v}</button>`;
   }).join('');
 }
 
@@ -861,6 +866,7 @@ function renderFocus(sess, cur) {
         <div class="set2-top">
           <span class="sn">Set ${j + 1} / ${p.n}</span>
           <span class="eff ${eff === PROGRAM.effortLabels.fail ? 'fail' : ''}">${esc(eff)}</span>
+          <span class="rec"${recordFlags(sess)[i][j] ? '' : ' hidden'}>Rekor</span>
           <span class="grow"></span>
           ${s.done ? '<span class="fx-state">Tamamlandı</span>' : ''}
         </div>
@@ -969,6 +975,67 @@ function stepper(i, j, f, value, label, pre) {
       <input class="${pre ? 'pre' : ''}" data-ex="${i}" data-set="${j}" data-f="${f}" type="text" inputmode="${f === 'w' ? 'decimal' : 'numeric'}" ${f === 'r' ? 'pattern="[0-9]*"' : ''} autocomplete="off" value="${value == null ? '' : (f === 'w' ? fmt(value) : value)}" placeholder="–" aria-label="${label}">
       <button class="sbtn" data-act="step" data-ex="${i}" data-set="${j}" data-f="${f}" data-d="1" aria-label="${label} artır">${PLUS_SVG}</button>
     </div>`;
+}
+
+/* ---------------- Anlık rekor ---------------- */
+
+/**
+ * Bir seansın rekor setleri. Kaydedilmez; her seferinde geçmişten hesaplanır.
+ * Kıyas: aynı hareketin (yedek ayrı) bu seanstan önceki bütün tamamlanmış setleri, seans türü fark etmez;
+ * yük azaltma seansları sayılmaz. Aynı seansın önceki setleri de "önceki" sayılır.
+ * Rekor: (a) o güne kadarki en yüksek kilo ya da (b) bu kiloda veya daha ağırında yapılmış en çok tekrardan fazlası.
+ * Vücut ağırlığı hareketinde: tek sette en çok tekrar. Hareketin önceki seanslarda hiç kaydı yoksa rekor yoktur.
+ * Dönen değer: entries ile aynı sırada, her set için null | 'w' (en yüksek kilo) | 'r' (en çok tekrar).
+ */
+function recordFlags(sess) {
+  const out = sess.entries.map((e) => e.sets.map(() => null));
+  if (sess.deload) return out;
+  const key = (e) => `${e.ex}|${e.sub ? 1 : 0}`;
+  const valid = (s, bw) => s.done && typeof s.r === 'number' && s.r > 0 && (bw || typeof s.w === 'number');
+  const prior = {}; // hareket anahtarı -> önceki setler [{w, r}]
+  const seen = {};  // hareket anahtarı -> önceki seanslarda kaydı var mı (yoksa bu seansta rekor olmaz)
+  const want = new Set(sess.entries.map(key));
+  state.sessions.forEach((p) => {
+    if (p === sess || p.id === sess.id || p.deload) return;
+    if (sess.finishedAt && !(p.finishedAt < sess.finishedAt)) return;
+    p.entries.forEach((e) => {
+      const k = key(e);
+      if (!want.has(k) || !exDef(e.ex)) return;
+      const bw = exDef(e.ex).load === 'bodyweight';
+      e.sets.forEach((s) => { if (valid(s, bw)) (prior[k] = prior[k] || []).push({ w: bw ? 0 : s.w, r: s.r }); });
+    });
+  });
+  sess.entries.forEach((e, i) => {
+    const def = exDef(e.ex);
+    if (!def || e.skipped) return;
+    const bw = def.load === 'bodyweight';
+    const list = prior[key(e)] || (prior[key(e)] = []);
+    if (!own(seen, key(e))) seen[key(e)] = list.length > 0; // önceki seanslarda kaydı var mı
+    e.sets.forEach((s, j) => {
+      if (!valid(s, bw)) return;
+      const w = bw ? 0 : s.w;
+      if (seen[key(e)]) {
+        let maxW = -Infinity, maxR = 0; // maxR: bu kiloda ya da daha ağırında en çok tekrar
+        list.forEach((x) => { if (x.w > maxW) maxW = x.w; if (x.w >= w && x.r > maxR) maxR = x.r; });
+        if (!bw && w > maxW) out[i][j] = 'w';
+        else if (s.r > maxR) out[i][j] = 'r';
+      }
+      list.push({ w, r: s.r });
+    });
+  });
+  return out;
+}
+
+/** Seans ekranındaki "Rekor" işaretlerini (set satırı ve odak şeridi) sayfayı yenilemeden günceller. */
+function refreshRecords(i) {
+  const sess = activeSess();
+  if (!sess || !sess.entries[i]) return;
+  const flags = recordFlags(sess)[i];
+  flags.forEach((f, j) => {
+    const row = document.getElementById(`set-${i}-${j}`);
+    const m = row && row.querySelector('.rec');
+    if (m) m.hidden = !f;
+  });
 }
 
 /* ---------------- Plaka hesaplayıcı ---------------- */
@@ -1130,6 +1197,7 @@ function renderExercise(sess, e, i, parts) {
     ex.perSide ? '<span class="tag">Her kol</span>' : '',
   ].join('');
 
+  const recs = recordFlags(sess)[i];
   const sets = e.sets.map((s, j) => {
     const eff = effortFor(sl, j, n, sess.deload);
     const tgt = setTarget(sess, e, j);
@@ -1138,6 +1206,7 @@ function renderExercise(sess, e, i, parts) {
       <div class="set2-top">
         <span class="sn">Set ${j + 1}</span>
         <span class="eff ${eff === PROGRAM.effortLabels.fail ? 'fail' : ''}">${esc(eff)}</span>
+        <span class="rec"${recs[j] ? '' : ' hidden'}>Rekor</span>
         <span class="grow"></span>
         <button class="chk" data-act="check" data-ex="${i}" data-set="${j}" aria-label="Set ${j + 1} ${s.done ? 'tiki kaldır' : 'tamam'}">${CHECK_SVG}</button>
       </div>
@@ -1255,13 +1324,22 @@ function sessionSummary(sess) {
       improved.push(bw ? `${e.name}: ${before.r} → ${now.r} tekrar` : (now.w > before.w ? `${e.name}: ${fmt(before.w)} → ${fmt(now.w)} kg` : `${e.name}: ${fmt(now.w)} kg'da ${before.r} → ${now.r} tekrar`));
     }
   });
-  return { name: sess.name, minutes: elapsedText(sess), sets: done + optDone, improved };
+  const records = [];
+  recordFlags(sess).forEach((fl, i) => fl.forEach((f, j) => {
+    if (!f) return;
+    const e = sess.entries[i], s = e.sets[j];
+    const bw = exDef(e.ex) && exDef(e.ex).load === 'bodyweight';
+    records.push({ name: e.name, text: `Set ${j + 1}: ${bw ? `${s.r} tekrar` : `${fmt(s.w)} kg × ${s.r}`}`, kind: f === 'w' ? 'en yüksek kilo' : (bw ? 'en çok tekrar' : 'bu kiloda en çok tekrar') });
+  }));
+  return { name: sess.name, minutes: elapsedText(sess), sets: done + optDone, improved, records };
 }
 
 function renderSummary() {
   const s = ui.summary;
   if (!s) return '';
   const rows = s.improved.map((x) => { const k = x.indexOf(': '); return `<div class="sum-row">${ICON.up}<span class="nm">${esc(k > 0 ? x.slice(0, k) : x)}</span><b>${esc(k > 0 ? x.slice(k + 2) : '')}</b></div>`; }).join('');
+  const recs = s.records || [];
+  const recRows = recs.map((x) => `<div class="sum-row rec-row"><span class="nm">${esc(x.name)}<small>${esc(x.kind)}</small></span><b>${esc(x.text)}</b></div>`).join('');
   return `
     <section class="card summary">
       <div class="sum-top"><span class="sum-check">${CHECK_SVG}</span><div><div class="eyebrow">Seans bitti</div><h2>${esc(s.name)}</h2></div></div>
@@ -1269,9 +1347,11 @@ function renderSummary() {
         <div><b>${esc(String(s.minutes).replace(' dk', ''))}</b><span>dakika</span></div>
         <div><b>${s.sets}</b><span>set</span></div>
         <div><b>${s.improved.length}</b><span>artan hareket</span></div>
+        <div><b>${recs.length}</b><span>rekor set</span></div>
       </div>
       ${s.late ? `<p class="muted small" style="margin:12px 0 0">${esc(s.late)}</p>` : ''}
       ${s.improved.length ? `<h3 class="sub">Geçen sefere göre artanlar</h3>${rows}` : '<p class="muted small" style="margin:12px 0 0">Geçen sefere göre artan hareket yok ya da bu seansın ilk kaydı.</p>'}
+      ${recs.length ? `<h3 class="sub">Rekor setler</h3>${recRows}` : ''}
       <button class="btn ghost" data-act="close-summary" style="margin-top:14px">Tamam</button>
     </section>`;
 }
@@ -1292,10 +1372,11 @@ function renderResume() {
 
 function renderHistory() {
   const list = [...state.sessions].reverse().map((s) => {
-    const rows = s.entries.map((e) => {
+    const flags = recordFlags(s);
+    const rows = s.entries.map((e, i) => {
       const ds = doneSets(e);
       const bw = exDef(e.ex) && exDef(e.ex).load === 'bodyweight';
-      const v = ds.length ? setsText(ds, bw) : 'yapılmadı';
+      const v = ds.length ? setsText(ds, bw, flags[i].filter((_, k) => e.sets[k].done)) : 'yapılmadı';
       const label = e.skipped ? 'atlandı' : v;
       return `<div class="hist-ex"><span>${e.sub ? '<span class="tag">Yedek</span> ' : ''}${esc(e.name)}</span><span class="v">${label}</span></div>`;
     }).join('');
@@ -1911,6 +1992,7 @@ function setRowRefresh(i, j, force) {
     if (inp && (force || document.activeElement !== inp)) inp.value = s[f] == null ? '' : (f === 'w' ? fmt(s[f]) : s[f]);
     if (inp && f === 'r') inp.classList.toggle('pre', !ui.editId && !s.rt);
   });
+  refreshRecords(i);
   refreshProgress();
   if (focusActive()) refreshFocusStrip();
 }
@@ -1945,17 +2027,18 @@ function toggleSet(i, j) {
   setRowRefresh(i, j);
   const undo = () => { s.done = false; s.r = prevR; save(); if (live) stopTimer(); setRowRefresh(i, j); };
   if (!live) { toastUndo(`Set ${j + 1} kaydedildi`, undo); return; }
+  const rec = recordFlags(sess)[i][j] ? ' · rekor' : '';
   const partner = supersetPartner(sess, i);
   if (partner != null && sl.ssPos === 1 && sess.entries[partner].sets.some((x) => !x.done)) {
     // Süpersetin ilk hareketi: dinlenmeden ikinciye geç (ikincinin seti kalmadıysa normal dinlenme)
     stopTimer();
-    toastUndo(`Dinlenmeden: ${sess.entries[partner].name}`, undo);
+    toastUndo(rec ? `Set ${j + 1} rekor · dinlenmeden: ${sess.entries[partner].name}` : `Dinlenmeden: ${sess.entries[partner].name}`, undo);
     const card = document.getElementById('ex-' + partner);
     if (card && card.scrollIntoView) card.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
     return;
   }
   startTimer(sl.rest, `${e.sub ? ex.sub : ex.name}${partner != null ? ' (süperset)' : ''} · dinlenme`);
-  toastUndo(`Set ${j + 1} kaydedildi`, undo);
+  toastUndo(`Set ${j + 1} kaydedildi${rec}`, undo);
 }
 
 /** Artı/eksi düğmesi. */
@@ -2402,6 +2485,8 @@ document.addEventListener('input', (ev) => {
   else { s.r = parseNum(inp.value, true); s.rt = true; inp.classList.remove('pre'); }
   save();
   if (inp.dataset.f === 'w') refreshWeightInfo(Number(inp.dataset.ex), Number(inp.dataset.set));
+  refreshRecords(Number(inp.dataset.ex));
+  if (focusActive()) refreshFocusStrip();
 });
 
 document.addEventListener('change', (ev) => {

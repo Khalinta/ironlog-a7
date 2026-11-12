@@ -612,10 +612,10 @@ body.sheet-open { overflow: hidden; }
 .sum-top h2 { font-size: 24px; margin-top: 2px; }
 .sum-check { width: 44px; height: 44px; border-radius: 50%; background: var(--ok); display: flex; align-items: center; justify-content: center; flex: none; }
 .sum-check svg { width: 24px; height: 24px; fill: none; stroke: var(--ok-ink); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-.sum-stats { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 16px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.sum-stats { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 16px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .sum-stats > div { padding: 12px 4px; text-align: center; }
 .sum-stats > div + div { border-left: 1px solid var(--line); }
-.sum-stats b { display: block; font-size: 34px; font-weight: 850; line-height: 1; font-variant-numeric: tabular-nums; }
+.sum-stats b { display: block; font-size: 30px; font-weight: 850; line-height: 1; font-variant-numeric: tabular-nums; }
 .sum-stats span { display: block; margin-top: 6px; font-size: 12px; color: var(--muted); }
 .sum-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); font-size: 15px; }
 .sum-row .ico { color: var(--ok); }
@@ -638,3 +638,14 @@ body.sheet-open { overflow: hidden; }
 .pchip.on { background: var(--sel-bg); border-color: var(--sel-line); color: var(--text); text-decoration: none; }
 .fx .warm .warm-nk { display: none; }
 .fx .warm .warm-sets { display: inline; margin: 0; }
+
+/* Anlık rekor */
+.rec, .rec-tag { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 3px 7px; border-radius: 6px; border: 1px solid var(--sel-line); color: var(--text); background: var(--sel-bg); white-space: nowrap; }
+.rec[hidden] { display: none; }
+.rec-tag { font-size: 10px; padding: 1px 5px; margin-left: 4px; vertical-align: 1px; }
+.rec-v { color: var(--text); font-weight: 800; }
+.fx-chip.rec-chip { flex-direction: column; gap: 0; line-height: 1.1; }
+.fx-chip .fx-cv { display: inline-flex; align-items: center; gap: 4px; }
+.fx-chip.rec-chip small { font-size: 9px; color: var(--text2); }
+.sum-row.rec-row b { color: var(--text); }
+.sum-row .nm small { display: block; font-size: 12px; font-weight: 500; color: var(--muted); }
