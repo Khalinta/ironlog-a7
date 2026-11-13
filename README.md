@@ -29,7 +29,7 @@ ekranlar bu dosyadan üretilir. Form ipuçları, yedek hareketler, haftalık set
 - Veriyi dışa / içe aktarma (JSON), 14 günde bir yedek hatırlatması. Eski programın kayıtları "Arşiv" olarak saklanır.
 - Seans ekranında iki görünüm: "Odak" (sadece sıradaki set, büyük "Seti tamamla" düğmesi, otomatik ilerleme) ve "Tüm seans" (bütün hareketlerin listesi).
 - Hareket başına ağırlık adımı: "Ayar" kutusundan o makinede artı/eksinin kaç kg değiştireceği ayarlanır.
-- Plaka hesaplayıcı (plakayla yüklenen hareketler: Smith machine bench press, Smith machine incline bench press, Leg press): kilo kutusunun altında "Her yana: 20 + 5 + 2,5" satırı. "Ayar" kutusunda boş bar / kızak ağırlığı ve salondaki plakalar (20, 15, 10, 5, 2,5, 1,25) kalıcı olarak ayarlanır. Bar ağırlığı girildiyse yazılan kilo toplam sayılır: her yana (kilo − bar) ÷ 2; boşsa yazılan kilo sadece plakalardır: her yana kilo ÷ 2. Tam tutmuyorsa en yakın alt birleşim ve eksik miktar gösterilir. Isınma kiloları da aynı hesapla verilir. Eski kayıtlar dönüştürülmez.
+- Plaka hesaplayıcı (plakayla yüklenen hareketler; şu an programda yalnızca Leg press): kilo kutusunun altında "Her yana: 20 + 5 + 2,5" satırı. "Ayar" kutusunda boş bar / kızak ağırlığı ve salondaki plakalar (20, 15, 10, 5, 2,5, 1,25) kalıcı olarak ayarlanır. Bar ağırlığı girildiyse yazılan kilo toplam sayılır: her yana (kilo − bar) ÷ 2; boşsa yazılan kilo sadece plakalardır: her yana kilo ÷ 2. Tam tutmuyorsa en yakın alt birleşim ve eksik miktar gösterilir. Isınma kiloları da aynı hesapla verilir. Eski kayıtlar dönüştürülmez.
 - Anlık rekor: bir set tamamlanınca aynı hareketin (yedek ayrı) önceki seanslardaki ve bu seanstaki bütün tamamlanmış setleriyle kıyaslanır; yük azaltma seansları sayılmaz. Rekor = o güne kadarki en yüksek kilo ya da bu kiloda veya daha ağırında yapılmış en çok tekrardan fazlası (vücut ağırlığında: tek sette en çok tekrar). Hareketin önceki seanslarda kaydı yoksa rekor olmaz. Set satırında, odak şeridinde, bildirimde, seans özetinde ve Geçmiş'te "Rekor" olarak görünür. Kaydedilmez; her seferinde geçmişten hesaplanır.
 - Tekrar aralığı çubuğu: her setin altında sol ucu alt, sağ ucu üst tekrar sınırı olan ince çubuk (büyük ağırlık adımı açıksa sağ uç üst sınır + 2). Dolu nokta bugünkü tekrar, içi boş işaret geçen seferki tekrardır (kilo farklıysa gizlenir). Hareketin setleri bitince artırma koşulu sağlandıysa (ilk set üst sınırda, son set alt sınırın altında değil) kartta "gelecek sefer kiloyu artır" satırı çıkar; kural, sonraki seansın artırma önerisiyle aynıdır. Yük azaltma seansında ve düzenleme modunda gösterilmez.
 - Kilo eğilimi (Takip, "Günlük" görünüm): günlük noktaların üzerine yumuşatılmış eğilim çizgisi ve "Son 4 hafta: haftada −0,5 kg" satırı. Açma/kapama tercihi yedeğe girmeyen `ironlog.chart` anahtarında tutulur.
@@ -45,7 +45,7 @@ Yöntem: üstel hareketli ortalama (EMA). Günlük katsayı **α = 0,2** (yakla�
   Bu aralıkta 6'dan az kayıt varsa ya da kayıtlar en az 14 güne yayılmamışsa "Eğilim için birkaç hafta daha kayıt gerekiyor" yazar.
 
 ## Hareket ayarı alanları
-`exSettings[hareket]` = `{ bigStep, note, step, bar, plates }`. Bütün alanlar tek bir fonksiyonda (`normCfg`) tanımlıdır;
+`exSettings[hareket]` = `{ bigStep, note, step, bar, plates }`. `bigStep` seçilmediyse programdaki varsayılan (`exercises[id].bigStep`) geçerlidir. Bütün alanlar tek bir fonksiyonda (`normCfg`) tanımlıdır;
 açılışta (`migrate`), yedekten geri yüklemede ve her kayıtta aynı fonksiyon kullanılır. Yeni alan eklenecekse yalnızca oraya eklenir,
 yoksa uygulama açılışta o alanı siler. `bar` boşsa `null`, bütün plakalar açıksa `plates` `null` olur.
 
@@ -56,7 +56,7 @@ yoksa uygulama açılışta o alanı siler. `bar` boşsa `null`, bütün plakala
 - `manifest.webmanifest`, `icons/` – ana ekran ikonu ve ayarları
 
 ## Veri sürümleri
-Veri `ironlog.v1` anahtarında, sürüm numaralı biçimde saklanır (şu an 5). Uygulama eski veriyle
+Veri `ironlog.v1` anahtarında, sürüm numaralı biçimde saklanır (şu an 6). Uygulama eski veriyle
 açıldığında `migrate()` onu kayıpsız yeni biçime çevirir ve geçiş öncesi kopyayı
 `ironlog.backup.pre-v<sürüm>` anahtarında saklar (Veri sekmesinden indirilebilir).
 
@@ -71,6 +71,12 @@ eski yuvayı `retiredSlots` altına taşı: eski kayıtlar ayrı hareket olarak 
 - Tek eklemli hareketlerde ve süperset turu sonunda dinlenme 90 sn.
 - Kayıtların hiçbiri değiştirilmez. Uygulama eski veriyle ilk açıldığında verinin birebir kopyasını `ironlog.backup.pre-v5` anahtarına yazar (Veri sekmesinden indirilebilir) ve hangi kaydın hangi ada bağlı olduğunun dökümünü ana ekranda gösterir.
 - Yeni alan: `estCheckAt` (aylık hatırlatmanın son kapatıldığı zaman).
+
+## Dumbbell press güncellemesi (veri sürümü 6)
+- Üst A'nın ilk hareketi **Dumbbell bench press**, Üst B'nin ilk hareketi **Incline dumbbell press** oldu. İkisinde de ağırlık kol başına girilir (`perHand: true`; ağırlık alanının yanında "kol başına" yazar) ve geçmişleri boş başlar.
+- Smith machine bench press ve Smith machine incline bench press programdan çıktı (`retired`, yuvaları `retiredSlots` altında); eski kayıtları ayrı hareket olarak durur.
+- "Büyük ağırlık adımı" bu iki press'te ve Dumbbell lateral raise'de varsayılan olarak açıktır (`bigStep: true`): artırma önerisi ilk set üst sınırı 2 tekrar geçince verilir. Ayar kutusundan kapatılabilir; kapatma kalıcıdır.
+- Kayıtlar değiştirilmez; ilk açılışta verinin birebir kopyası `ironlog.backup.pre-v6` anahtarına yazılır.
 
 ## Yayınlama
 GitHub → Settings → Pages → Source: "Deploy from a branch", Branch: `main`, klasör: `/ (root)`.

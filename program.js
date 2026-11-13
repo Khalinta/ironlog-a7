@@ -9,6 +9,7 @@
      rir12    = her set 1–2 tekrar kala
      rir2     = her set 2 tekrar kala
      lastFail = önceki setler 1–2 tekrar kala, son set tükeniş
+   Hareket alanları: perHand = ağırlık kol başına girilir; bigStep = "büyük ağırlık adımı" varsayılan olarak açık.
    warmup.plan: ısınma setleri (pct = çalışma kilosunun yüzdesi, bar = boş bar, light = çok hafif). Kaydedilmez.
    rest: setler arası dinlenme (saniye). Süpersette tur sonunda uygulanır.
    ss / ssPos: süperset grubu ve sırası (1 = önce, 2 = sonra; 1'den sonra dinlenme yok).
@@ -24,7 +25,7 @@ const PROGRAM = {
   /* Ağırlık adımları (artı/eksi düğmeleri). load: machine | plate | dumbbell | bodyweight */
   loadSteps: {
     machine: { unit: 'kg', step: 4.5 },   // makinelerdeki 10 lbs ≈ 4,5 kg
-    plate: { unit: 'kg', step: 2.5 },     // plaka takılan aletler (Smith): her yana 1,25 kg
+    plate: { unit: 'kg', step: 2.5 },     // plaka takılan aletler (leg press, Smith): her yana 1,25 kg
     dumbbell: { unit: 'kg', step: 2.5 },
     bodyweight: null,
   },
@@ -37,8 +38,8 @@ const PROGRAM = {
     "about": "Göğüs, sırt, omuz ve kol. 21 çalışma seti, yaklaşık 70 dakika. Hareketleri yazılı sırayla yap.",
     "slots": [
       {
-        "key": "ua1s",
-        "ex": "smithbench",
+        "key": "ua1d",
+        "ex": "dbbench",
         "sets": 4,
         "reps": [
           6,
@@ -47,11 +48,11 @@ const PROGRAM = {
         "effort": "rir12",
         "rest": 150,
         "warmup": {
-          "plan": [{"bar":true,"reps":"8–10"},{"pct":75,"reps":"3–5"}],
+          "plan": [{"pct":50,"reps":"8–10"},{"pct":75,"reps":"3–5"}],
           "sets": true,
-          "text": "Seansın ilk hareketi: önce boş barla 8–10 tekrar, sonra çalışma kilonun yaklaşık dörtte üçüyle 3–5 tekrar."
+          "text": "Seansın ilk hareketi: çalışma kilonun yaklaşık yarısıyla 8–10 tekrar, sonra dörtte üçüyle 3–5 tekrar."
         },
-        "effortNote": "Tükenişe gitme; bar göğsünün üzerinde."
+        "effortNote": "Tükenişe gitme; dumbbell'lar yüzünün üzerinde."
       },
       {
         "key": "ua2",
@@ -234,8 +235,8 @@ const PROGRAM = {
     "about": "Üst A'nın karşılığı: göğüste açı değişiyor, sırtta row öne geçiyor, kol hareketleri yer değiştiriyor. 21 çalışma seti, yaklaşık 70 dakika.",
     "slots": [
       {
-        "key": "ub1",
-        "ex": "smithincline",
+        "key": "ub1d",
+        "ex": "inclinedbpress",
         "sets": 4,
         "reps": [
           8,
@@ -244,12 +245,11 @@ const PROGRAM = {
         "effort": "rir12",
         "rest": 150,
         "warmup": {
-          "plan": [{"bar":true,"reps":"8–10"},{"pct":75,"reps":"3–5"}],
+          "plan": [{"pct":50,"reps":"8–10"},{"pct":75,"reps":"3–5"}],
           "sets": true,
-          "emptyBar": true,
-          "text": "Seansın ilk hareketi: önce boş barla 8–10 tekrar, sonra çalışma kilonun yaklaşık dörtte üçüyle 3–5 tekrar."
+          "text": "Seansın ilk hareketi: çalışma kilonun yaklaşık yarısıyla 8–10 tekrar, sonra dörtte üçüyle 3–5 tekrar."
         },
-        "effortNote": "Tükenişe gitme; bar göğsünün üzerinde."
+        "effortNote": "Tükenişe gitme."
       },
       {
         "key": "ub2",
@@ -433,8 +433,109 @@ const PROGRAM = {
 },
 
   exercises: {
+  "dbbench": {
+    "name": "Dumbbell bench press",
+    "muscle": "Göğüs",
+    "load": "dumbbell",
+    "perHand": true,
+    "bigStep": true,
+    "sub": "Smith makinesinde düz sehpada press ya da plakalı göğüs makinesi",
+    "form": [
+      {
+        "label": "Çalışan kaslar",
+        "text": "Göğüs (ana), ön omuz ve triceps (yardımcı)",
+        "steps": []
+      },
+      {
+        "label": "Kayıt",
+        "text": "Kol başına kiloyu yaz (iki elinde 14'er kg varsa 14 yaz).",
+        "steps": []
+      },
+      {
+        "label": "",
+        "text": "Dumbbell seçilmesinin sebebi alet beklememek. Kas büyümesi açısından makine ve Smith makinesiyle arasında fark beklenmiyor.",
+        "steps": []
+      },
+      {
+        "label": "Dumbbell'ları pozisyona alma",
+        "text": "",
+        "steps": [
+          "Sehpanın ucuna otur, dumbbell'ları dik olarak dizlerinin hemen üstüne, uyluklarına koy.",
+          "Sırtüstü yatarken dizlerinle dumbbell'ları göğsüne doğru it; yattığında dumbbell'lar göğsünün iki yanında olur.",
+          "Ayakları yere sağlam bas, kürek kemiklerini geriye ve aşağıya çekip sehpaya bastır."
+        ]
+      },
+      {
+        "label": "Yapılış",
+        "text": "",
+        "steps": [
+          "Dumbbell'ları göğsünün üstünde, kollar neredeyse düz olacak şekilde yukarı it. Başlangıç pozisyonu bu.",
+          "2–3 saniyede indir. Dirsekler gövdeye göre yaklaşık 45–60 derece açık, ön kollar yere dik.",
+          "Dumbbell'lar göğsünün yanına, göğüs hizasına gelene ve göğsünde belirgin bir gerilme hissedene kadar in.",
+          "Sektirmeden yukarı it. Yukarıda dumbbell'ları birbirine vurma, dirsekleri sertçe kilitleme.",
+          "Set bitince dumbbell'ları göğsüne indir, dizlerini çekip doğrul ve dumbbell'ları uyluklarına al. Yanlara bırakıp düşürme."
+        ]
+      },
+      {
+        "label": "Sık hatalar",
+        "text": "Dirsekleri tam yana açmak, omuzları kulağa doğru kaldırmak, hareketi yarım yapmak, bir kolu diğerinden önde itmek, kalçayı sehpadan kaldırmak. Dumbbell'lar sallanıyorsa kilo fazladır.",
+        "steps": []
+      },
+      {
+        "label": "İlk seanslar",
+        "text": "Kol başına 8–10 kg gibi hafif bir kiloyla başla ve ilk iki seansta sadece formu oturt; kiloyu set set artır. Bir sonraki dumbbell genelde kol başına 2–2,5 kg ağır olduğu için bu harekette \"büyük kilo adımı\" kuralı geçerli: kiloyu artırmadan önce ilk sette üst sınırı 2 tekrar geç (12 tekrar).",
+        "steps": []
+      }
+    ]
+  },
+  "inclinedbpress": {
+    "name": "Incline dumbbell press",
+    "muscle": "Göğüs",
+    "load": "dumbbell",
+    "perHand": true,
+    "bigStep": true,
+    "sub": "Smith makinesinde eğimli sehpada press",
+    "form": [
+      {
+        "label": "Çalışan kaslar",
+        "text": "Göğsün üst kısmı (ana), ön omuz ve triceps (yardımcı)",
+        "steps": []
+      },
+      {
+        "label": "Kayıt",
+        "text": "Kol başına kilo. Düz sehpadaki kilondan biraz hafif olması normal.",
+        "steps": []
+      },
+      {
+        "label": "Kurulum",
+        "text": "Ayarlı sehpanın sırt kısmını yaklaşık 30 dereceye getir (genelde yataydan sonraki 2. ya da 3. kademe). 45 derecenin üstünde yük göğüsten ön omuza kayar. Oturak kısmı ayarlanıyorsa bir kademe kaldır; aşağı kaymazsın. Dumbbell'ları Üst A'daki gibi uyluklarından dizlerinle iterek pozisyona al.",
+        "steps": []
+      },
+      {
+        "label": "Yapılış",
+        "text": "",
+        "steps": [
+          "Kürek kemikleri geride ve sehpaya baskılı, göğüs yukarıda. Dumbbell'lar üst göğsünün üzerinde, kollar neredeyse düz.",
+          "2–3 saniyede üst göğsünün iki yanına indir. Dirsekler gövdeye göre 45–60 derece, ön kollar yere dik.",
+          "Üst göğüste gerilme hissedince sektirmeden yukarı it. Dumbbell'lar dik yukarı gitsin, yüzüne doğru kaymasın.",
+          "Set bitince dumbbell'ları göğsüne indirip uyluklarına al."
+        ]
+      },
+      {
+        "label": "Sık hatalar",
+        "text": "Sehpayı fazla dik ayarlamak, beli aşırı çukurlaştırıp hareketi düz press'e çevirmek, dirsekleri tam yana açmak, hareketi yarım yapmak.",
+        "steps": []
+      },
+      {
+        "label": "Kilo adımı",
+        "text": "Üst A'daki gibi \"büyük kilo adımı\" kuralı geçerli: kiloyu artırmadan önce ilk sette 14 tekrara çık.",
+        "steps": []
+      }
+    ]
+  },
   "smithbench": {
     "name": "Smith machine bench press",
+    "retired": true,
     "muscle": "Göğüs",
     "load": "plate",
     "sub": "Düz sehpada dumbbell press ya da plakalı göğüs makinesi",
@@ -523,6 +624,7 @@ const PROGRAM = {
   },
   "smithincline": {
     "name": "Smith machine incline bench press",
+    "retired": true,
     "muscle": "Göğüs",
     "load": "plate",
     "sub": "Eğimli sehpada dumbbell press",
@@ -640,6 +742,7 @@ const PROGRAM = {
     "name": "Dumbbell lateral raise",
     "muscle": "Yan omuz",
     "load": "dumbbell",
+    "bigStep": true,
     "form": [
       {
         "label": "Çalışan kaslar",
@@ -1043,7 +1146,10 @@ const PROGRAM = {
   /* Programdan çıkarılmış hareket yuvaları: yeni seanslarda yer almaz; eski kayıtları geçmişte,
      düzenlemede ve ilerleme listesinde ayrı hareket olarak görünmeye devam eder. */
   retiredSlots: {
-    UA: [{ key: 'ua1', ex: 'chestpress', sets: 4, reps: [6, 10], effort: 'rir12', rest: 150 }],
+    UA: [{ key: 'ua1', ex: 'chestpress', sets: 4, reps: [6, 10], effort: 'rir12', rest: 150 },
+      { key: 'ua1s', ex: 'smithbench', sets: 4, reps: [6, 10], effort: 'rir12', rest: 150 }],
+    // Smith press'lerin yerine dumbbell press'ler geldi; eski kayıtlar ayrı hareket olarak durur
+    UB: [{ key: 'ub1', ex: 'smithincline', sets: 4, reps: [8, 12], effort: 'rir12', rest: 150 }],
     // Calf raise 13 Kasım'da programdan çıkarıldı; eski kayıtları geçmişte durur
     LA: [{ key: 'la3', ex: 'calf', sets: 3, reps: [8, 12], effort: 'lastFail', rest: 75 }],
     LB: [{ key: 'lb3', ex: 'calf', sets: 3, reps: [8, 12], effort: 'lastFail', rest: 75 }],
@@ -1083,7 +1189,7 @@ const PROGRAM = {
   estCheck: {
     everyDays: 30,
     text: "Lat pulldown ve seated row'da son seti tükenişe götürüp tahminini kontrol et.",
-    more: "Büyük hareketlerde hiç tükenişe gitmediğin için \"1–2 tekrar kaldı\" tahminin sınanmıyor. Leg press'te bunu ancak emniyet kolları ayarlıyken yap. Smith press'lerde yapma.",
+    more: "Büyük hareketlerde hiç tükenişe gitmediğin için \"1–2 tekrar kaldı\" tahminin sınanmıyor. Leg press'te bunu ancak emniyet kolları ayarlıyken yap. Dumbbell press'lerde yapma.",
   },
 
   /* Haftalık set bütçesi (doğrudan setler, hafta toplamı) */
@@ -1118,9 +1224,9 @@ const PROGRAM = {
       "lines": [
         "Varsayılan: RIR 1–2. Seti bitirdiğinde \"bir iki tane daha çıkardı\" diyebilmelisin. Son tekrarlar belirgin yavaşlamalı; yavaşlamıyorsa set hafif kalmıştır.",
         "Tek eklemli hareketlerin son seti: tükeniş. Lateral raise, reverse pec deck, curl, triceps, leg extension ve leg curl bu gruba girer. Sadece son sette, formu bozmadan.",
-        "Büyük hareketlerde tükeniş yok. Smith bench press, Smith incline press, leg press, lat pulldown ve row her zaman RIR 1–2'de biter.",
+        "Büyük hareketlerde tükeniş yok. Dumbbell bench press, incline dumbbell press, leg press, lat pulldown ve row her zaman RIR 1–2'de biter.",
         "Tahminini ayarlamak: İnsanlar kalan tekrarı ortalama 1 tekrar hatayla tahmin ediyor; yeni başlayan ve aradan dönenler genelde erken bırakıyor (Biolayne, Halperin ve ark. özeti). İlk hafta tek eklemli hareketlerin son setinde tükenişe gidip sınırını gör.",
-        "Ayda bir tahmin kontrolü: Büyük hareketlerde hiç tükenişe gitmediğin için \"1–2 tekrar kaldı\" tahminin oralarda hiç sınanmıyor. 3–4 haftada bir, lat pulldown ve seated row'da son seti tükenişe kadar götür ve tahmininle karşılaştır. Leg press'te bunu ancak emniyet kolları ayarlıyken yap. Smith press'lerde yapma. Ek kontrol: aynı kiloyla son setin tekrarı ilk setle aynı çıkıyorsa ilk setler büyük olasılıkla fazla hafif bitmiştir."
+        "Ayda bir tahmin kontrolü: Büyük hareketlerde hiç tükenişe gitmediğin için \"1–2 tekrar kaldı\" tahminin oralarda hiç sınanmıyor. 3–4 haftada bir, lat pulldown ve seated row'da son seti tükenişe kadar götür ve tahmininle karşılaştır. Leg press'te bunu ancak emniyet kolları ayarlıyken yap. Dumbbell press'lerde yapma. Ek kontrol: aynı kiloyla son setin tekrarı ilk setle aynı çıkıyorsa ilk setler büyük olasılıkla fazla hafif bitmiştir."
       ]
     },
     {
@@ -1132,7 +1238,7 @@ const PROGRAM = {
         ],
         "rows": [
           [
-            "Smith bench press, Smith incline press, leg press",
+            "Dumbbell bench press, incline dumbbell press, leg press",
             "2–3 dakika"
           ],
           [

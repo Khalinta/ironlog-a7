@@ -6,9 +6,9 @@
    ========================================================= */
 
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
-const DATA_VERSION = 5;
-const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4', 'ironlog.backup.pre-v5']; // sürüm geçişlerinden önceki birebir kopyalar
-const APP_VERSION = '5.0.0';
+const DATA_VERSION = 6;
+const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4', 'ironlog.backup.pre-v5', 'ironlog.backup.pre-v6']; // sürüm geçişlerinden önceki birebir kopyalar
+const APP_VERSION = '5.1.0';
 const LATE_FINISH_MS = 30 * 60000;      // son setten bu kadar sonra bitirilirse bitiş zamanı son set sayılır
 const WAIST_EVERY_DAYS = 14;
 
@@ -112,8 +112,9 @@ const PLATE_SIZES = [20, 15, 10, 5, 2.5, 1.25];
  * Hareket ayarının tek biçimi. Yeni alan eklenirse SADECE buraya eklenir:
  * açılışta (migrate), yedekten geri yüklemede ve her kayıtta aynı fonksiyon kullanılır.
  */
-function normCfg(v) {
+function normCfg(v, exId) {
   v = v && typeof v === 'object' ? v : {};
+  const def = exDef(exId) || {};
   const num = (x, lo, hi) => (typeof x === 'number' && Number.isFinite(x) && x >= lo && x <= hi ? x : null);
   let plates = null; // null = bütün plakalar var
   if (Array.isArray(v.plates)) {
@@ -121,7 +122,7 @@ function normCfg(v) {
     if (p.length && p.length < PLATE_SIZES.length) plates = p;
   }
   return {
-    bigStep: !!v.bigStep,
+    bigStep: v.bigStep == null ? !!def.bigStep : !!v.bigStep, // seçilmediyse programdaki varsayılan
     note: typeof v.note === 'string' ? v.note.slice(0, 300) : '',
     step: num(v.step, 0.25, 50),
     bar: num(v.bar, 0.25, 100),   // boş bar / kızak ağırlığı; null = girilmedi
@@ -217,7 +218,7 @@ function buildRenameReport(raw) {
   return { at: new Date().toISOString(), dismissed: false, rows: [...map.values()].sort((a, b) => (a.old === a.now) - (b.old === b.now) || a.old.localeCompare(b.old, 'tr')) };
 }
 
-/** Her sürümdeki veriyi (v1–v5) bugünkü biçime getirir. Hiçbir kaydı silmez. */
+/** Her sürümdeki veriyi (v1–v6) bugünkü biçime getirir. Hiçbir kaydı silmez. */
 function migrate(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('Geçersiz veri');
   const from = Number(raw.version) || 1;
@@ -230,8 +231,8 @@ function migrate(raw) {
     if (!Array.isArray(raw.sessions)) throw new Error('Yedekte seans listesi yok');
     // v3 → v4: hareket adları programdan okunur. Hangi kaydın hangi ada bağlandığının dökümü çıkarılır.
     if (from === 3) st.renameReport = buildRenameReport(raw);
-    else if (from === 4) {
-      // v4 → v5: program güncellendi (calf çıktı, alt günlerine hareket eklendi). Kayıtlar değişmez;
+    else if (from === 4 || from === 5) {
+      // v4/v5 → v6: program güncellendi (calf çıktı, alt günlerine hareket eklendi, press'ler dumbbell oldu). Kayıtlar değişmez;
       // hangi kaydın hangi ada bağlı olduğunun dökümü yeniden çıkarılır. Önceki dökümdeki eski adlar korunur.
       const rpt = buildRenameReport(raw);
       const prev = raw.renameReport && Array.isArray(raw.renameReport.rows) ? raw.renameReport.rows : [];
@@ -268,7 +269,9 @@ function migrate(raw) {
       Object.keys(raw.exSettings).forEach((k) => {
         const v = raw.exSettings[k];
         if (!exDef(k) || !v || typeof v !== 'object') return;
-        st.exSettings[k] = normCfg(v);
+        st.exSettings[k] = normCfg(v, k);
+        // v6: programda "büyük ağırlık adımı açık" olan hareketlerde açık başlar (eski "kapalı" bir seçim değil, varsayılandı)
+        if (from < 6 && exDef(k).bigStep) st.exSettings[k].bigStep = true;
       });
     }
     return st;
@@ -385,7 +388,8 @@ function buildSession(type, deload, short) {
 /* ---------------- Öneri mantığı ---------------- */
 
 const exCfg = (exId) => own(state.exSettings, exId) || {};
-const bigStepOn = (exId) => !!exCfg(exId).bigStep;
+/** Büyük ağırlık adımı: kullanıcı ayarı varsa o, yoksa programdaki varsayılan. */
+const bigStepOn = (exId) => { const c = exCfg(exId); return typeof c.bigStep === 'boolean' ? c.bigStep : !!(exDef(exId) || {}).bigStep; };
 /** Artırma için gereken tekrar: üst sınır (büyük adım açıksa üst sınır + 2). */
 const topThreshold = (sl) => sl.reps[1] + (bigStepOn(sl.ex) ? PROGRAM.bigStep.extraReps : 0);
 
@@ -572,7 +576,7 @@ function renderRenameReport() {
     <section class="card migrate" id="renameReport">
       <div class="eyebrow">Program güncellendi</div>
       <p style="margin:6px 0 4px">Program son haline getirildi. Hiçbir kayıt silinmedi; ${total} hareket kaydının tamamı aşağıdaki adlara bağlı.</p>
-      <p class="muted small" style="margin:0 0 8px">Calf raise programdan çıktı; eski kayıtları Geçmiş'te ve Takip'teki hareket listesinde duruyor. Alt A'ya <b>Leg extension</b>, Alt B'ye <b>Leg press</b> eklendi; ikisinin de bu seanslardaki geçmişi boş başlıyor. Üst A'nın ilk hareketi <b>Smith machine bench press</b>; eski chest press kayıtların ayrı hareket olarak duruyor.</p>
+      <p class="muted small" style="margin:0 0 8px">Calf raise programdan çıktı; eski kayıtları Geçmiş'te ve Takip'teki hareket listesinde duruyor. Alt A'ya <b>Leg extension</b>, Alt B'ye <b>Leg press</b> eklendi; ikisinin de bu seanslardaki geçmişi boş başlıyor. Üst A'nın ilk hareketi <b>Dumbbell bench press</b>, Üst B'nin ilk hareketi <b>Incline dumbbell press</b> oldu (kilo kol başına girilir); geçmişleri boş başlıyor. Eski chest press ve Smith press kayıtların ayrı hareket olarak duruyor.</p>
       ${r.rows.length ? r.rows.map(row).join('') : '<p class="muted small">Yeni programda henüz kayıt yoktu.</p>'}
       ${latestBackupKey() ? `<button class="btn" data-act="dl-pre-backup" data-key="${latestBackupKey()}" style="margin-top:10px">Güncelleme öncesi yedeği indir</button>` : ''}
       <button class="btn ghost" data-act="dismiss-rename">Tamam, gizle</button>
@@ -928,7 +932,7 @@ function renderFocus(sess, cur) {
         </div>
         ${tgt ? `<div class="tgt" id="tgt-${i}-${j}">${esc(tgt)}</div>` : ''}
         <div class="set2-row ${bw ? 'bw' : ''}">
-          ${bw ? '' : `<div class="fx-field"><span class="fx-lbl">kg <small>(±${fmt(weightStep(e.ex))})</small></span>${stepper(i, j, 'w', s.w, `Set ${j + 1} ağırlık`)}</div>`}
+          ${bw ? '' : `<div class="fx-field"><span class="fx-lbl${p.ex.perHand ? ' hand' : ''}">kg${p.ex.perHand ? ' · kol başına' : ''} <small>(±${fmt(weightStep(e.ex))})</small></span>${stepper(i, j, 'w', s.w, `Set ${j + 1} ağırlık`)}</div>`}
           <div class="fx-field"><span class="fx-lbl">${p.ex.perSide ? 'tekrar / kol' : 'tekrar'}</span>${stepper(i, j, 'r', s.r, `Set ${j + 1} tekrar`, !s.rt)}</div>
         </div>
         ${plateLine(e, i, j)}
@@ -1398,7 +1402,7 @@ function renderExercise(sess, e, i, parts) {
       ${lastHtml}
       ${notes}
       <div class="sets">
-        <div class="set2-head ${bodyweight ? 'bw' : ''}">${bodyweight ? '' : `<span>kg <small>(±${fmt(weightStep(e.ex))})</small></span>`}<span>${ex.perSide ? 'tekrar / kol' : 'tekrar'}</span></div>
+        <div class="set2-head ${bodyweight ? 'bw' : ''}">${bodyweight ? '' : `<span>kg${ex.perHand ? ' · kol başına' : ''} <small>(±${fmt(weightStep(e.ex))})</small></span>`}<span>${ex.perSide ? 'tekrar / kol' : 'tekrar'}</span></div>
         ${sets}
       </div>
       ${live && !sess.deload ? `<div class="top-line" id="top-${i}"${topLineOn(sess, e) ? '' : ' hidden'}>${ICON.up} ${TOP_LINE}</div>` : ''}
@@ -1552,7 +1556,7 @@ function renderSettings() {
     <section class="card">
       <h2>Güncelleme öncesi yedekler</h2>
       <p class="muted small">Uygulamanın veri biçimi her değiştiğinde, değişiklikten önceki verinin birebir kopyası bu telefonda saklanır.</p>
-      ${backupKeys().map((k) => `<button class="btn" data-act="dl-pre-backup" data-key="${k}">${({ 'ironlog.backup.pre-v3': '4 seanslık programa geçiş öncesi', 'ironlog.backup.pre-v4': 'Hareket adları güncellemesi öncesi', 'ironlog.backup.pre-v5': '13 Kasım program güncellemesi öncesi' })[k]} – indir</button>`).join('')}
+      ${backupKeys().map((k) => `<button class="btn" data-act="dl-pre-backup" data-key="${k}">${({ 'ironlog.backup.pre-v3': '4 seanslık programa geçiş öncesi', 'ironlog.backup.pre-v4': 'Hareket adları güncellemesi öncesi', 'ironlog.backup.pre-v5': '13 Kasım program güncellemesi öncesi', 'ironlog.backup.pre-v6': 'Dumbbell press güncellemesi öncesi' })[k]} – indir</button>`).join('')}
       ${state.renameReport && state.renameReport.dismissed ? '<button class="btn ghost" data-act="show-rename">Ad eşleştirme dökümünü göster</button>' : ''}
     </section>` : ''}
     ${standalone ? '' : `
@@ -2496,7 +2500,7 @@ document.addEventListener('click', (ev) => {
     case 'bigstep': {
       const id = el.dataset.exId;
       if (!exDef(id)) break;
-      state.exSettings[id] = normCfg(exCfg(id));
+      state.exSettings[id] = normCfg(exCfg(id), id);
       state.exSettings[id].bigStep = !state.exSettings[id].bigStep;
       save(); render();
       break;
@@ -2508,7 +2512,7 @@ document.addEventListener('click', (ev) => {
       const now = plateList(id);
       const next = now.includes(k) ? now.filter((x) => x !== k) : PLATE_SIZES.filter((x) => x === k || now.includes(x));
       if (!next.length) { toast('En az bir plaka açık kalmalı'); break; }
-      state.exSettings[id] = normCfg(Object.assign({}, exCfg(id), { plates: next }));
+      state.exSettings[id] = normCfg(Object.assign({}, exCfg(id), { plates: next }), id);
       save();
       const on = next.includes(k);
       el.classList.toggle('on', on);
@@ -2658,7 +2662,7 @@ document.addEventListener('change', (ev) => {
   if (inp.dataset && inp.dataset.exnote) {
     const id = inp.dataset.exnote;
     if (!exDef(id)) return;
-    state.exSettings[id] = normCfg(exCfg(id));
+    state.exSettings[id] = normCfg(exCfg(id), id);
     const note = inp.value.trim().slice(0, 300);
     state.exSettings[id].note = note;
     save();
@@ -2686,7 +2690,7 @@ document.addEventListener('change', (ev) => {
         return;
       }
     }
-    state.exSettings[id] = normCfg(Object.assign({}, exCfg(id), { bar: val }));
+    state.exSettings[id] = normCfg(Object.assign({}, exCfg(id), { bar: val }), id);
     save();
     inp.value = val ? fmt(val) : '';
     const card = inp.closest('.ex');
@@ -2708,7 +2712,7 @@ document.addEventListener('change', (ev) => {
         return;
       }
     }
-    state.exSettings[id] = normCfg(exCfg(id));
+    state.exSettings[id] = normCfg(exCfg(id), id);
     state.exSettings[id].step = val;
     save();
     inp.value = val ? fmt(val) : '';
