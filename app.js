@@ -6,9 +6,9 @@
    ========================================================= */
 
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
-const DATA_VERSION = 4;
-const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4']; // sürüm geçişlerinden önceki birebir kopyalar
-const APP_VERSION = '4.13.0';
+const DATA_VERSION = 5;
+const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4', 'ironlog.backup.pre-v5']; // sürüm geçişlerinden önceki birebir kopyalar
+const APP_VERSION = '5.0.0';
 const LATE_FINISH_MS = 30 * 60000;      // son setten bu kadar sonra bitirilirse bitiş zamanı son set sayılır
 const WAIST_EVERY_DAYS = 14;
 
@@ -131,7 +131,7 @@ function normCfg(v) {
 
 function defaultState() {
   return { version: DATA_VERSION, sessions: [], archive: [], current: null, timer: null, body: [], waist: [], migration: null,
-    deloadMode: false, deloadSince: null, exSettings: {}, regressionDismissed: null, renameReport: null };
+    deloadMode: false, deloadSince: null, exSettings: {}, regressionDismissed: null, renameReport: null, estCheckAt: null };
 }
 
 function normSet(s) {
@@ -217,7 +217,7 @@ function buildRenameReport(raw) {
   return { at: new Date().toISOString(), dismissed: false, rows: [...map.values()].sort((a, b) => (a.old === a.now) - (b.old === b.now) || a.old.localeCompare(b.old, 'tr')) };
 }
 
-/** Her sürümdeki veriyi (v1, v2, v3, v4) bugünkü biçime getirir. Hiçbir kaydı silmez. */
+/** Her sürümdeki veriyi (v1–v5) bugünkü biçime getirir. Hiçbir kaydı silmez. */
 function migrate(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('Geçersiz veri');
   const from = Number(raw.version) || 1;
@@ -230,7 +230,18 @@ function migrate(raw) {
     if (!Array.isArray(raw.sessions)) throw new Error('Yedekte seans listesi yok');
     // v3 → v4: hareket adları programdan okunur. Hangi kaydın hangi ada bağlandığının dökümü çıkarılır.
     if (from === 3) st.renameReport = buildRenameReport(raw);
-    else if (raw.renameReport && typeof raw.renameReport === 'object' && Array.isArray(raw.renameReport.rows)) {
+    else if (from === 4) {
+      // v4 → v5: program güncellendi (calf çıktı, alt günlerine hareket eklendi). Kayıtlar değişmez;
+      // hangi kaydın hangi ada bağlı olduğunun dökümü yeniden çıkarılır. Önceki dökümdeki eski adlar korunur.
+      const rpt = buildRenameReport(raw);
+      const prev = raw.renameReport && Array.isArray(raw.renameReport.rows) ? raw.renameReport.rows : [];
+      rpt.rows.forEach((r) => {
+        const olds = prev.filter((x) => x && typeof x === 'object' && x.now === r.now && x.old && x.old !== x.now).map((x) => String(x.old).slice(0, 120));
+        if (r.old === r.now && olds.length) r.old = [...new Set(olds)].join(', ');
+      });
+      rpt.rows.sort((a, b) => (a.old === a.now) - (b.old === b.now) || a.old.localeCompare(b.old, 'tr'));
+      st.renameReport = rpt;
+    } else if (raw.renameReport && typeof raw.renameReport === 'object' && Array.isArray(raw.renameReport.rows)) {
       st.renameReport = {
         at: typeof raw.renameReport.at === 'string' ? raw.renameReport.at : '',
         dismissed: !!raw.renameReport.dismissed,
@@ -252,6 +263,7 @@ function migrate(raw) {
     st.deloadMode = !!raw.deloadMode;
     st.deloadSince = st.deloadMode && typeof raw.deloadSince === 'string' ? raw.deloadSince : null;
     st.regressionDismissed = typeof raw.regressionDismissed === 'string' ? raw.regressionDismissed : null;
+    st.estCheckAt = typeof raw.estCheckAt === 'string' ? raw.estCheckAt : null;
     if (raw.exSettings && typeof raw.exSettings === 'object') {
       Object.keys(raw.exSettings).forEach((k) => {
         const v = raw.exSettings[k];
@@ -380,7 +392,33 @@ const topThreshold = (sl) => sl.reps[1] + (bigStepOn(sl.ex) ? PROGRAM.bigStep.ex
 /** Aynı seans türündeki önceki, yük azaltma olmayan kayıt. */
 const progressRef = (sess, e) => lastSlotEntry(sess.type, e.slot, sess.id, sess.finishedAt, true, e.sub);
 
-const allAtTop = (entry, thr) => entry.sets.length > 0 && entry.sets.every((x) => x.done && x.r != null && x.r >= thr);
+/**
+ * Kilo artırma kuralı: ilk set üst sınıra ulaştı (büyük ağırlık adımı açıksa üst sınır + 2) VE son set alt sınırın altına düşmedi.
+ * Bütün setlerin üst sınıra ulaşması beklenmez. Hareketin bütün setleri tamamlanmış olmalı.
+ */
+const bumpReady = (entry, sl) => {
+  if (!entry.sets.length || !entry.sets.every((x) => x.done && x.r != null)) return false;
+  return entry.sets[0].r >= topThreshold(sl) && entry.sets[entry.sets.length - 1].r >= sl.reps[0];
+};
+/** İlerleme: daha yüksek kilo ya da aynı kiloda herhangi bir sette en az bir tekrar fazlası. */
+function improvedOver(cur, prev) {
+  const a = doneSets(cur), b = doneSets(prev);
+  if (!a.length || !b.length) return false;
+  if (maxW(cur) !== maxW(prev)) return maxW(cur) > maxW(prev);
+  return a.some((x, k) => b[k] && (x.w || 0) === (b[k].w || 0) && (x.r || 0) > (b[k].r || 0));
+}
+/** Aynı seans türünde son 3 kayıtta art arda artış yok mu (bunun için 4 kayıt gerekir). */
+function stalled(sess, e) {
+  const chain = [];
+  let ref = progressRef(sess, e);
+  while (ref && chain.length < PROGRAM.hold.sessions + 1) {
+    chain.push(ref.entry);
+    ref = lastSlotEntry(sess.type, e.slot, ref.session.id, ref.session.finishedAt, true, e.sub);
+  }
+  if (chain.length < PROGRAM.hold.sessions + 1) return false;
+  for (let k = 0; k < PROGRAM.hold.sessions; k++) if (improvedOver(chain[k], chain[k + 1])) return false;
+  return true;
+}
 const maxW = (entry) => Math.max(0, ...doneSets(entry).map((x) => x.w || 0));
 
 /** Son kayıttan önceki, daha düşük ağırlıklı kayıt (önceki ağırlığa dönmek için). */
@@ -406,8 +444,8 @@ function suggestion(sess, e) {
   if (!ref) return ex.load === 'bodyweight' ? null : { kind: 'first', short: 'İlk hafta: hafif başla', text: PROGRAM.firstTime };
   if (ex.load === 'bodyweight') return null;
   const thr = topThreshold(sl);
-  if (allAtTop(ref.entry, thr)) {
-    return { kind: 'bump', short: 'Kiloyu artır', text: `Ağırlığı en küçük adımla artır. Geçen sefer ${fmt(maxW(ref.entry))} kg ile bütün setlerde ${thr}${bigStepOn(sl.ex) ? ' (büyük adım: üst sınır + 2)' : ''} tekrara ulaştın. Yeni kiloda tekrarların aralığın altına (${sl.reps[0]}) yakın düşmesi normal; oradan yeniden tırman.` };
+  if (bumpReady(ref.entry, sl)) {
+    return { kind: 'bump', short: 'Kiloyu artır', text: `Ağırlığı en küçük adımla artır. Geçen sefer ${fmt(maxW(ref.entry))} kg ile ilk sette ${thr}${bigStepOn(sl.ex) ? ' (büyük adım: üst sınır + 2)' : ''} tekrara ulaştın, son set ${sl.reps[0]} tekrarın altına düşmedi. Yeni kiloda tekrarların aralığın altına (${sl.reps[0]}) yakın düşmesi normal; oradan yeniden tırman.` };
   }
   const first = ref.entry.sets[0];
   if (first && first.done && first.r != null && first.r < sl.reps[0]) {
@@ -416,7 +454,9 @@ function suggestion(sess, e) {
       ? `Geçen sefer ilk sette alt sınıra (${sl.reps[0]}) ulaşamadın: önceki ağırlığa dön (${fmt(back)} kg).`
       : `Geçen sefer ilk sette alt sınıra (${sl.reps[0]}) ulaşamadın: kiloyu bir kademe azalt.` };
   }
-  return { kind: 'same', short: 'Aynı kilo, +1 tekrar dene', text: 'Aynı kilo: geçen seferden bir tekrar fazlasını dene.' };
+  // 3 seans üst üste artış yok: uyarı ya da gerileme değil, sakin bir not
+  if (stalled(sess, e)) return { kind: 'hold', short: PROGRAM.hold.short, text: PROGRAM.hold.text };
+  return { kind: 'same', short: 'Aynı kilo, +1 tekrar dene', text: 'Aynı kilo: geçen seferden bir tekrar fazlasını dene. Bu bir hedef, zorunluluk değil.' };
 }
 
 /** Bir setin "geçen / hedef" bilgisi. Hedef: aynı kiloda geçen seferden 1 fazla, üst sınırı geçmeden. */
@@ -453,6 +493,16 @@ function regressionWarning() {
   const bad = recent.every((s) => s.entries.filter((e) => regressed(s, e)).length >= 3);
   const id = recent[1].id;
   return bad && state.regressionDismissed !== id ? id : null;
+}
+
+/**
+ * Ayda bir, zorlayıcı olmayan hatırlatma (kapatılabilir). Son kapatılmadan, hiç kapatılmadıysa ilk seanstan
+ * bu yana PROGRAM.estCheck.everyDays gün geçtiyse görünür.
+ */
+function estCheckDue(now = Date.now()) {
+  if (!state.sessions.length) return false;
+  const base = Date.parse(state.estCheckAt || state.sessions[0].finishedAt);
+  return Number.isFinite(base) && now - base >= PROGRAM.estCheck.everyDays * DAY_MS;
 }
 
 /* ---------------- Arayüz durumu ---------------- */
@@ -521,8 +571,8 @@ function renderRenameReport() {
   return `
     <section class="card migrate" id="renameReport">
       <div class="eyebrow">Program güncellendi</div>
-      <p style="margin:6px 0 4px">Hareket adları güncellendi. Hiçbir kayıt silinmedi; ${total} hareket kaydının tamamı aşağıdaki adlara bağlı.</p>
-      <p class="muted small" style="margin:0 0 8px">Üst A'nın ilk hareketi artık <b>Smith machine bench press</b>; geçmişi boş başlıyor. Eski chest press kayıtların geçmişte ayrı hareket olarak duruyor.</p>
+      <p style="margin:6px 0 4px">Program son haline getirildi. Hiçbir kayıt silinmedi; ${total} hareket kaydının tamamı aşağıdaki adlara bağlı.</p>
+      <p class="muted small" style="margin:0 0 8px">Calf raise programdan çıktı; eski kayıtları Geçmiş'te ve Takip'teki hareket listesinde duruyor. Alt A'ya <b>Leg extension</b>, Alt B'ye <b>Leg press</b> eklendi; ikisinin de bu seanslardaki geçmişi boş başlıyor. Üst A'nın ilk hareketi <b>Smith machine bench press</b>; eski chest press kayıtların ayrı hareket olarak duruyor.</p>
       ${r.rows.length ? r.rows.map(row).join('') : '<p class="muted small">Yeni programda henüz kayıt yoktu.</p>'}
       ${latestBackupKey() ? `<button class="btn" data-act="dl-pre-backup" data-key="${latestBackupKey()}" style="margin-top:10px">Güncelleme öncesi yedeği indir</button>` : ''}
       <button class="btn ghost" data-act="dismiss-rename">Tamam, gizle</button>
@@ -610,6 +660,12 @@ function renderHome() {
       <p style="margin:0 0 10px">Birkaç harekette gerileme var; yük azaltma haftası düşünebilirsin.</p>
       <button class="btn ghost" data-act="dismiss-regression" data-id="${esc(w)}">Kapat</button>
     </section>` : ''; })()}
+    ${estCheckDue() ? `<section class="card calm" id="estCheck">
+      <div class="eyebrow">Ayda bir</div>
+      <p style="margin:6px 0 4px">${esc(PROGRAM.estCheck.text)}</p>
+      <p class="muted small" style="margin:0 0 10px">${esc(PROGRAM.estCheck.more)}</p>
+      <button class="btn ghost" data-act="dismiss-estcheck">Tamam, kapat</button>
+    </section>` : ''}
 
     <section class="card">
       <h2>${esc(def.name)} planı</h2>
@@ -790,7 +846,7 @@ function focusListHtml(sess, cur) {
     if (e.skipped) {
       return `<div class="fx-row skipped${ss}"><span class="n">${num}</span><span class="nm">${esc(e.name)}<small>Bugün atlandı</small></span><button class="btn ghost mini" data-act="skip" data-ex="${k}">Geri al</button></div>`;
     }
-    const sub = [e.sub ? 'Yedek' : '', inSS ? `Süperset ${sl.ssPos}/2` : '', sl.optional ? 'İsteğe bağlı' : '', topLineOn(sess, e) ? 'Üst sınırda: gelecek sefer kiloyu artır' : ''].filter(Boolean).join(' · ');
+    const sub = [e.sub ? 'Yedek' : '', inSS ? `Süperset ${sl.ssPos}/2` : '', sl.optional ? 'İsteğe bağlı' : '', topLineOn(sess, e) ? 'Gelecek sefer kiloyu artır' : ''].filter(Boolean).join(' · ');
     return `<button class="fx-row${cur && cur.i === k ? ' on' : ''}${n && d === n ? ' done' : ''}${ss}" data-act="focus-ex" data-slot="${esc(e.slot)}"><span class="n">${num}</span><span class="nm">${esc(e.name)}${sub ? `<small>${sub}</small>` : ''}</span><span class="c">${d}/${n}</span></button>`;
   }).join('');
   const manual = ui.focusSlot || ui.focusSet;
@@ -981,12 +1037,12 @@ function stepper(i, j, f, value, label, pre) {
 
 /* ---------------- Tekrar aralığı çubuğu ---------------- */
 
-const TOP_LINE = 'Bütün setler üst sınırda: gelecek sefer kiloyu artır.';
+const TOP_LINE = 'İlk set üst sınırda, son set alt sınırın altına düşmedi: gelecek sefer kiloyu artır.';
 
-/** Hareketin bütün setleri tamam ve hepsi üst sınırda mı (gelecek seansın "kiloyu artır" önerisiyle aynı kural). */
+/** Hareketin bütün setleri tamam ve artırma koşulu sağlandı mı (gelecek seansın "kiloyu artır" önerisiyle aynı kural). */
 function entryAtTop(sess, e) {
   const sl = slotDef(sess.type, e.slot);
-  return !!sl && !sess.deload && !e.skipped && allAtTop(e, topThreshold(sl));
+  return !!sl && !sess.deload && !e.skipped && bumpReady(e, sl);
 }
 /** Kart satırı yalnızca kilo artırılabilen hareketlerde çıkar (vücut ağırlığında öneri de yok). */
 const topLineOn = (sess, e) => entryAtTop(sess, e) && exDef(e.ex).load !== 'bodyweight';
@@ -1496,7 +1552,7 @@ function renderSettings() {
     <section class="card">
       <h2>Güncelleme öncesi yedekler</h2>
       <p class="muted small">Uygulamanın veri biçimi her değiştiğinde, değişiklikten önceki verinin birebir kopyası bu telefonda saklanır.</p>
-      ${backupKeys().map((k) => `<button class="btn" data-act="dl-pre-backup" data-key="${k}">${k === BACKUP_KEYS[0] ? '4 seanslık programa geçiş öncesi' : 'Hareket adları güncellemesi öncesi'} – indir</button>`).join('')}
+      ${backupKeys().map((k) => `<button class="btn" data-act="dl-pre-backup" data-key="${k}">${({ 'ironlog.backup.pre-v3': '4 seanslık programa geçiş öncesi', 'ironlog.backup.pre-v4': 'Hareket adları güncellemesi öncesi', 'ironlog.backup.pre-v5': '13 Kasım program güncellemesi öncesi' })[k]} – indir</button>`).join('')}
       ${state.renameReport && state.renameReport.dismissed ? '<button class="btn ghost" data-act="show-rename">Ad eşleştirme dökümünü göster</button>' : ''}
     </section>` : ''}
     ${standalone ? '' : `
@@ -2487,6 +2543,8 @@ document.addEventListener('click', (ev) => {
       toggleSub(Number(el.dataset.ex)); break;
     case 'skip':
       toggleSkip(Number(el.dataset.ex)); break;
+    case 'dismiss-estcheck':
+      state.estCheckAt = new Date().toISOString(); save(); render(); break;
     case 'dismiss-regression':
       state.regressionDismissed = el.dataset.id; save(); render(); break;
     case 'resume':

@@ -88,7 +88,7 @@ const PROGRAM = {
           15
         ],
         "effort": "lastFail",
-        "rest": 75
+        "rest": 90
       },
       {
         "key": "ua5",
@@ -99,7 +99,7 @@ const PROGRAM = {
           15
         ],
         "effort": "lastFail",
-        "rest": 75
+        "rest": 90
       },
       {
         "key": "ua6a",
@@ -110,7 +110,7 @@ const PROGRAM = {
           12
         ],
         "effort": "lastFail",
-        "rest": 75,
+        "rest": 90,
         "ss": "ua6",
         "ssPos": 1
       },
@@ -123,7 +123,7 @@ const PROGRAM = {
           12
         ],
         "effort": "lastFail",
-        "rest": 75,
+        "rest": 90,
         "ss": "ua6",
         "ssPos": 2
       }
@@ -131,7 +131,7 @@ const PROGRAM = {
   },
   "LA": {
     "name": "Alt A",
-    "about": "Bacak, baldır, yan omuz, kol ve isteğe bağlı karın. 21 çalışma seti, yaklaşık 65–70 dakika.",
+    "about": "Bacak, yan omuz, kol ve isteğe bağlı karın. 21 çalışma seti, yaklaşık 65 dakika.",
     "slots": [
       {
         "key": "la1",
@@ -151,6 +151,18 @@ const PROGRAM = {
         "effortNote": "Tükenişe gitme; bu harekette tükeniş hem çok yorar hem de ağırlığın altında kalma riski taşır."
       },
       {
+        "key": "la2e",
+        "ex": "legext",
+        "sets": 3,
+        "reps": [
+          10,
+          15
+        ],
+        "effort": "lastFail",
+        "rest": 90,
+        "note": "Uyluğun ön-orta kası rectus femoris'i leg press büyütmüyor, leg extension büyütüyor. Sırtlık yatırılabiliyorsa biraz geriye yaslan. Leg press'ten sonra geldiği için Alt B'deki kilonun biraz altında kalman normal. İki seansın kaydını ayrı tut."
+      },
+      {
         "key": "la2",
         "ex": "legcurl",
         "sets": 4,
@@ -159,18 +171,7 @@ const PROGRAM = {
           12
         ],
         "effort": "lastFail",
-        "rest": 75
-      },
-      {
-        "key": "la3",
-        "ex": "calf",
-        "sets": 3,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "lastFail",
-        "rest": 75
+        "rest": 90
       },
       {
         "key": "la4",
@@ -181,12 +182,12 @@ const PROGRAM = {
           15
         ],
         "effort": "lastFail",
-        "rest": 60,
+        "rest": 90,
         "warmup": {
           "plan": [{"light":true,"reps":"8–10"}],
           "text": "Bacaktan omuza geçtiğin için çok hafif kiloyla 8–10 tekrarlık tek set."
         },
-        "restNote": "İki kolu arka arkaya yap, sonra 1 dakika dinlen."
+        "restNote": "İki kolu arka arkaya yap, sonra 1,5 dakika dinlen."
       },
       {
         "key": "la5a",
@@ -197,7 +198,7 @@ const PROGRAM = {
           12
         ],
         "effort": "lastFail",
-        "rest": 75,
+        "rest": 90,
         "ss": "la5",
         "ssPos": 1
       },
@@ -210,7 +211,7 @@ const PROGRAM = {
           15
         ],
         "effort": "lastFail",
-        "rest": 75,
+        "rest": 90,
         "ss": "la5",
         "ssPos": 2
       },
@@ -287,8 +288,8 @@ const PROGRAM = {
           15
         ],
         "effort": "lastFail",
-        "rest": 60,
-        "restNote": "İki kolu arka arkaya yap, sonra 1 dakika dinlen."
+        "rest": 90,
+        "restNote": "İki kolu arka arkaya yap, sonra 1,5 dakika dinlen."
       },
       {
         "key": "ub5",
@@ -299,7 +300,7 @@ const PROGRAM = {
           15
         ],
         "effort": "lastFail",
-        "rest": 75
+        "rest": 90
       },
       {
         "key": "ub6a",
@@ -310,7 +311,7 @@ const PROGRAM = {
           12
         ],
         "effort": "lastFail",
-        "rest": 75,
+        "rest": 90,
         "ss": "ub6",
         "ssPos": 1,
         "note": "Preacher curl'de ağırlığı altta kontrollü açmayı unutma."
@@ -324,7 +325,7 @@ const PROGRAM = {
           15
         ],
         "effort": "lastFail",
-        "rest": 75,
+        "rest": 90,
         "ss": "ub6",
         "ssPos": 2
       }
@@ -332,7 +333,7 @@ const PROGRAM = {
   },
   "LB": {
     "name": "Alt B",
-    "about": "Alt A'nın karşılığı: ön bacakta leg press yerine leg extension var, yan omuzda dumbbell, kolda incline curl ve baş üstü triceps. 21 çalışma seti, yaklaşık 60–65 dakika.",
+    "about": "Alt A'nın karşılığı: ön bacak leg extension ile başlıyor, ardından kalça için 3 set leg press geliyor; yan omuzda dumbbell, kolda incline curl ve overhead triceps var. 21 çalışma seti, yaklaşık 60–65 dakika.",
     "slots": [
       {
         "key": "lb1",
@@ -351,6 +352,19 @@ const PROGRAM = {
         }
       },
       {
+        "key": "lb2p",
+        "ex": "legpress",
+        "sets": 3,
+        "reps": [
+          8,
+          12
+        ],
+        "effort": "rir2",
+        "rest": 150,
+        "effortNote": "Tükenişe gitme.",
+        "note": "Kalça büyümesini derinlik belirliyor: kalçan yastıktan kalkmadan inebildiğin en derin noktaya in. Leg extension'dan sonra geldiği için Alt A'daki kilonun biraz altında kalman normal. İki seansın kaydını ayrı tut."
+      },
+      {
         "key": "lb2",
         "ex": "legcurl",
         "sets": 4,
@@ -359,19 +373,7 @@ const PROGRAM = {
           12
         ],
         "effort": "lastFail",
-        "rest": 75
-      },
-      {
-        "key": "lb3",
-        "ex": "calf",
-        "sets": 3,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "lastFail",
-        "rest": 75,
-        "note": "Altta 1–2 saniye beklemeyi atlama."
+        "rest": 90
       },
       {
         "key": "lb4",
@@ -382,7 +384,7 @@ const PROGRAM = {
           15
         ],
         "effort": "lastFail",
-        "rest": 75,
+        "rest": 90,
         "warmup": {
           "plan": [{"light":true,"reps":"8–10"}],
           "text": "Bacaktan omuza geçtiğin için çok hafif kiloyla 8–10 tekrarlık tek set."
@@ -397,7 +399,7 @@ const PROGRAM = {
           12
         ],
         "effort": "lastFail",
-        "rest": 75,
+        "rest": 90,
         "ss": "lb5",
         "ssPos": 1
       },
@@ -410,7 +412,7 @@ const PROGRAM = {
           12
         ],
         "effort": "lastFail",
-        "rest": 75,
+        "rest": 90,
         "ss": "lb5",
         "ssPos": 2
       },
@@ -435,7 +437,7 @@ const PROGRAM = {
     "name": "Smith machine bench press",
     "muscle": "Göğüs",
     "load": "plate",
-    "sub": "Düz sehpada dumbbell press",
+    "sub": "Düz sehpada dumbbell press ya da plakalı göğüs makinesi",
     "form": [
       {
         "label": "Çalışan kaslar",
@@ -713,7 +715,7 @@ const PROGRAM = {
       },
       {
         "label": "Kurulum",
-        "text": "Kelebek (pec deck) makinesine yüzün yastığa dönük otur. Kolların başlangıç pozisyonunu ayarlayan pimleri en arkaya al; böylece kollar önde, birbirine yakın başlar. Koltuğu, tutamaçlar omuz hizasına gelecek şekilde ayarla. Göğsün yastığa dayalı kalsın.",
+        "text": "Kelebek (pec deck) makinesine yüzün yastığa dönük otur. Kolların başlangıç pozisyonunu ayarlayan pimleri en arkaya al; böylece kollar önde, birbirine yakın başlar. Koltuğu, tutamaçlar omuz hizasına gelecek şekilde ayarla. Dikey tutamaç varsa avuçların birbirine bakacak şekilde tut. Göğsün yastığa dayalı kalsın.",
         "steps": []
       },
       {
@@ -969,6 +971,7 @@ const PROGRAM = {
     "name": "Calf raise",
     "muscle": "Baldır",
     "load": "machine",
+    "retired": true,
     "form": [
       {
         "label": "Çalışan kaslar",
@@ -1041,6 +1044,9 @@ const PROGRAM = {
      düzenlemede ve ilerleme listesinde ayrı hareket olarak görünmeye devam eder. */
   retiredSlots: {
     UA: [{ key: 'ua1', ex: 'chestpress', sets: 4, reps: [6, 10], effort: 'rir12', rest: 150 }],
+    // Calf raise 13 Kasım'da programdan çıkarıldı; eski kayıtları geçmişte durur
+    LA: [{ key: 'la3', ex: 'calf', sets: 3, reps: [8, 12], effort: 'lastFail', rest: 75 }],
+    LB: [{ key: 'lb3', ex: 'calf', sets: 3, reps: [8, 12], effort: 'lastFail', rest: 75 }],
   },
 
   /* Yük azaltma (deload): kilolar aynı, set sayısı yarıya (yukarı yuvarlanır: 4→2, 3→2, 2→1), her set 3 tekrar kala. */
@@ -1070,6 +1076,16 @@ const PROGRAM = {
   /* "Büyük ağırlık adımı" açık hareketlerde artırma önerisi, üst sınırın bu kadar tekrar üstünde verilir */
   bigStep: { extraReps: 2, text: "Kilo adımı çok büyükse: Lateral raise ya da curl gibi hafif hareketlerde bir sonraki dumbbell ya da plaka yüzde 20–30 artış demek olabilir. O zaman üst sınırı 2–3 tekrar geçene kadar aynı kiloda kal (örneğin 10–15 yerine 17–18'e kadar çık), sonra artır. Bazı salonlarda makine plakalarının arasına takılan 1–2,5 kg'lık ek ağırlıklar olur; varsa onları kullan." },
 
+  /* Aynı seans türünde bu kadar seans üst üste artış yoksa "kiloyu koru" notu (uyarı değil) */
+  hold: { sessions: 3, short: "Kiloyu koru", text: "Bu harekette 3 seans üst üste artış yok: kiloyu koru ve zorlamayı artırma. Tek seansa değil 3–4 haftalık gidişe bak; kalori açığında kiloları korumak başarıdır." },
+
+  /* Ayda bir tahmin kontrolü hatırlatması (zorlayıcı değil, kapatılabilir) */
+  estCheck: {
+    everyDays: 30,
+    text: "Lat pulldown ve seated row'da son seti tükenişe götürüp tahminini kontrol et.",
+    more: "Büyük hareketlerde hiç tükenişe gitmediğin için \"1–2 tekrar kaldı\" tahminin sınanmıyor. Leg press'te bunu ancak emniyet kolları ayarlıyken yap. Smith press'lerde yapma.",
+  },
+
   /* Haftalık set bütçesi (doğrudan setler, hafta toplamı) */
   weeklyTargets: {
   "Yan omuz": 12,
@@ -1078,9 +1094,8 @@ const PROGRAM = {
   "Sırt": 10,
   "Göğüs": 8,
   "Arka omuz": 6,
-  "Ön bacak": 8,
+  "Ön bacak": 14,
   "Arka bacak": 8,
-  "Baldır": 6,
   "Karın (isteğe bağlı)": 6
 },
 
@@ -1102,9 +1117,10 @@ const PROGRAM = {
       "title": "Setleri ne kadar zorlayacaksın",
       "lines": [
         "Varsayılan: RIR 1–2. Seti bitirdiğinde \"bir iki tane daha çıkardı\" diyebilmelisin. Son tekrarlar belirgin yavaşlamalı; yavaşlamıyorsa set hafif kalmıştır.",
-        "Tek eklemli hareketlerin son seti: tükeniş. Lateral raise, reverse pec deck, curl, triceps, leg extension, leg curl ve calf raise bu gruba girer. Sadece son sette, formu bozmadan.",
-        "Büyük hareketlerde tükeniş yok. Chest press, Smith incline press, leg press, lat pulldown ve row her zaman RIR 1–2'de biter.",
-        "Tahminini ayarlamak: İnsanlar kalan tekrarı ortalama 1 tekrar hatayla tahmin ediyor; yeni başlayan ve aradan dönenler genelde erken bırakıyor (Biolayne, Halperin ve ark. özeti). İlk hafta tek eklemli hareketlerin son setinde tükenişe gidip sınırını gör."
+        "Tek eklemli hareketlerin son seti: tükeniş. Lateral raise, reverse pec deck, curl, triceps, leg extension ve leg curl bu gruba girer. Sadece son sette, formu bozmadan.",
+        "Büyük hareketlerde tükeniş yok. Smith bench press, Smith incline press, leg press, lat pulldown ve row her zaman RIR 1–2'de biter.",
+        "Tahminini ayarlamak: İnsanlar kalan tekrarı ortalama 1 tekrar hatayla tahmin ediyor; yeni başlayan ve aradan dönenler genelde erken bırakıyor (Biolayne, Halperin ve ark. özeti). İlk hafta tek eklemli hareketlerin son setinde tükenişe gidip sınırını gör.",
+        "Ayda bir tahmin kontrolü: Büyük hareketlerde hiç tükenişe gitmediğin için \"1–2 tekrar kaldı\" tahminin oralarda hiç sınanmıyor. 3–4 haftada bir, lat pulldown ve seated row'da son seti tükenişe kadar götür ve tahmininle karşılaştır. Leg press'te bunu ancak emniyet kolları ayarlıyken yap. Smith press'lerde yapma. Ek kontrol: aynı kiloyla son setin tekrarı ilk setle aynı çıkıyorsa ilk setler büyük olasılıkla fazla hafif bitmiştir."
       ]
     },
     {
@@ -1116,23 +1132,23 @@ const PROGRAM = {
         ],
         "rows": [
           [
-            "Chest press, Smith incline press, leg press",
+            "Smith bench press, Smith incline press, leg press",
             "2–3 dakika"
           ],
           [
-            "Lat pulldown, oturarak row",
+            "Lat pulldown, seated row",
             "2 dakika"
           ],
           [
-            "Lateral raise, reverse pec deck, leg extension, leg curl, calf raise",
-            "1–1,5 dakika"
+            "Lateral raise, reverse pec deck, leg extension, leg curl",
+            "1,5 dakika (vaktin darsa 1 dakika)"
           ],
           [
             "Biceps + triceps süperseti",
-            "İki hareket arasında bekleme yok, tur bitince 1–1,5 dakika"
+            "İki hareket arasında bekleme yok, tur bitince 1,5 dakika"
           ],
           [
-            "Yerde crunch",
+            "Crunch",
             "1 dakika"
           ]
         ]
