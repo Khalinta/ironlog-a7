@@ -503,51 +503,27 @@ const PROGRAM = {
     "sub": "Smith makinesinde düz sehpada press ya da plakalı göğüs makinesi",
     "form": [
       {
-        "label": "Çalışan kaslar",
-        "text": "Göğüs (ana), ön omuz ve triceps (yardımcı)",
+        "label": "Neden bu hareket",
+        "text": "Göğsün tamamını ağır yükle çalıştıran ana itiş. Seansın ilk ve en ağır hareketi olduğu için 6–10 tekrar.",
         "steps": []
       },
       {
-        "label": "Kayıt",
-        "text": "Kol başına kiloyu yaz (iki elinde 14'er kg varsa 14 yaz).",
+        "label": "Tutuş",
+        "text": "Avuçlar ayaklara doğru bakar, bilek düz, dumbbell ön kolun tam üstünde. İki kol aynı anda.",
         "steps": []
       },
       {
-        "label": "",
-        "text": "Dumbbell seçilmesinin sebebi alet beklememek. Kas büyümesi açısından makine ve Smith makinesiyle arasında fark beklenmiyor.",
+        "label": "Form",
+        "text": "Kürek kemikleri geride ve sehpaya baskılı. 2–3 saniyede göğsün yanına indir, dirsekler gövdeye 45–60 derece. Sektirmeden it.",
         "steps": []
       },
       {
-        "label": "Dumbbell'ları pozisyona alma",
-        "text": "",
-        "steps": [
-          "Sehpanın ucuna otur, dumbbell'ları dik olarak dizlerinin hemen üstüne, uyluklarına koy.",
-          "Sırtüstü yatarken dizlerinle dumbbell'ları göğsüne doğru it; yattığında dumbbell'lar göğsünün iki yanında olur.",
-          "Ayakları yere sağlam bas, kürek kemiklerini geriye ve aşağıya çekip sehpaya bastır."
-        ]
-      },
-      {
-        "label": "Yapılış",
-        "text": "",
-        "steps": [
-          "Dumbbell'ları göğsünün üstünde, kollar neredeyse düz olacak şekilde yukarı it. Başlangıç pozisyonu bu.",
-          "2–3 saniyede indir. Dirsekler gövdeye göre yaklaşık 45–60 derece açık, ön kollar yere dik.",
-          "Dumbbell'lar göğsünün yanına, göğüs hizasına gelene ve göğsünde belirgin bir gerilme hissedene kadar in.",
-          "Sektirmeden yukarı it. Yukarıda dumbbell'ları birbirine vurma, dirsekleri sertçe kilitleme.",
-          "Set bitince dumbbell'ları göğsüne indir, dizlerini çekip doğrul ve dumbbell'ları uyluklarına al. Yanlara bırakıp düşürme."
-        ]
-      },
-      {
-        "label": "Sık hatalar",
-        "text": "Dirsekleri tam yana açmak, omuzları kulağa doğru kaldırmak, hareketi yarım yapmak, bir kolu diğerinden önde itmek, kalçayı sehpadan kaldırmak. Dumbbell'lar sallanıyorsa kilo fazladır.",
-        "steps": []
-      },
-      {
-        "label": "İlk seanslar",
-        "text": "Kol başına 8–10 kg gibi hafif bir kiloyla başla ve ilk iki seansta sadece formu oturt; kiloyu set set artır. Bir sonraki dumbbell genelde kol başına 2–2,5 kg ağır olduğu için bu harekette \"büyük kilo adımı\" kuralı geçerli: kiloyu artırmadan önce ilk sette üst sınırı 2 tekrar geç (12 tekrar).",
+        "label": "Sık hata",
+        "text": "Dirsekleri tam yana açmak, yarım inmek, kalçayı sehpadan kaldırmak.",
         "steps": []
       }
-    ]
+    ],
+    "yt": "dumbbell bench press form"
   },
   "inclinedbpress": {
     "name": "Incline dumbbell press",
@@ -558,41 +534,27 @@ const PROGRAM = {
     "sub": "Smith makinesinde eğimli sehpada press",
     "form": [
       {
-        "label": "Çalışan kaslar",
-        "text": "Göğsün üst kısmı (ana), ön omuz ve triceps (yardımcı)",
+        "label": "Neden bu hareket",
+        "text": "Eğimli sehpa yükü üst göğse kaydırır. 8–12 tekrar, çünkü dar aralıkta dumbbell'ın kilo adımı ilerlemeyi tıkar.",
         "steps": []
       },
       {
-        "label": "Kayıt",
-        "text": "Kol başına kilo. Düz sehpadaki kilondan biraz hafif olması normal.",
+        "label": "Tutuş",
+        "text": "Avuçlar ayaklara doğru bakar, bilek düz. İki kol aynı anda.",
         "steps": []
       },
       {
-        "label": "Kurulum",
-        "text": "Ayarlı sehpanın sırt kısmını yaklaşık 30 dereceye getir (genelde yataydan sonraki 2. ya da 3. kademe). 45 derecenin üstünde yük göğüsten ön omuza kayar. Oturak kısmı ayarlanıyorsa bir kademe kaldır; aşağı kaymazsın. Dumbbell'ları Üst A'daki gibi uyluklarından dizlerinle iterek pozisyona al.",
+        "label": "Form",
+        "text": "Sehpa yaklaşık 30 derece. Üst göğsün iki yanına indir, dik yukarı it.",
         "steps": []
       },
       {
-        "label": "Yapılış",
-        "text": "",
-        "steps": [
-          "Kürek kemikleri geride ve sehpaya baskılı, göğüs yukarıda. Dumbbell'lar üst göğsünün üzerinde, kollar neredeyse düz.",
-          "2–3 saniyede üst göğsünün iki yanına indir. Dirsekler gövdeye göre 45–60 derece, ön kollar yere dik.",
-          "Üst göğüste gerilme hissedince sektirmeden yukarı it. Dumbbell'lar dik yukarı gitsin, yüzüne doğru kaymasın.",
-          "Set bitince dumbbell'ları göğsüne indirip uyluklarına al."
-        ]
-      },
-      {
-        "label": "Sık hatalar",
-        "text": "Sehpayı fazla dik ayarlamak, beli aşırı çukurlaştırıp hareketi düz press'e çevirmek, dirsekleri tam yana açmak, hareketi yarım yapmak.",
-        "steps": []
-      },
-      {
-        "label": "Kilo adımı",
-        "text": "Üst A'daki gibi \"büyük kilo adımı\" kuralı geçerli: kiloyu artırmadan önce ilk sette 14 tekrara çık.",
+        "label": "Sık hata",
+        "text": "Sehpayı fazla dik ayarlamak (iş ön omza kayar), beli aşırı çukurlaştırmak.",
         "steps": []
       }
-    ]
+    ],
+    "yt": "incline dumbbell press form"
   },
   "smithbench": {
     "name": "Smith machine bench press",
@@ -740,31 +702,27 @@ const PROGRAM = {
     "sub": "Farklı bir pulldown makinesi ya da destekli barfiks makinesi",
     "form": [
       {
-        "label": "Çalışan kaslar",
-        "text": "Sırtın geniş kası latissimus dorsi (ana), biceps ve arka omuz (yardımcı)",
+        "label": "Neden bu hareket",
+        "text": "Sırta genişlik veren dikey çekiş.",
         "steps": []
       },
       {
-        "label": "Kurulum",
-        "text": "Diz yastığını, uylukların sıkıca altında kalacak şekilde ayarla; ağır kiloda seni yerinde tutan şey bu. Çubuğu omuz genişliğinden biraz geniş, avuçlar karşıya bakacak şekilde tut.",
+        "label": "Tutuş",
+        "text": "Üstten tutuş (avuçlar karşıya bakar), eller omuzdan biraz geniş.",
         "steps": []
       },
       {
-        "label": "Yapılış",
-        "text": "",
-        "steps": [
-          "Kollar tam uzamışken başla; koltuk altlarında gerilme hissetmelisin.",
-          "Gövdeni çok hafif geriye yatır (yaklaşık 10–15 derece) ve bu açıyı sabit tut.",
-          "Dirsekleri aşağıya, kalçana doğru çektiğini düşünerek çubuğu üst göğsüne indir.",
-          "2–3 saniyede kollar tam uzayana kadar geri bırak."
-        ]
+        "label": "Form",
+        "text": "Gövde hafif geride ve sabit. Dirsekleri kalçaya doğru çekerek çubuğu üst göğse indir. Yukarıda kollar tam uzasın.",
+        "steps": []
       },
       {
-        "label": "Sık hatalar",
-        "text": "Gövdeyi her tekrarda geriye savurup kiloyu sırtla değil momentumla çekmek, çubuğu ensenin arkasına indirmek, yukarıda kolları tam uzatmamak. Elinle çekmeye değil dirseğinle çekmeye odaklanırsan yük kollardan sırta kayar.",
+        "label": "Sık hata",
+        "text": "Gövdeyi savurmak, çubuğu enseye indirmek.",
         "steps": []
       }
-    ]
+    ],
+    "yt": "lat pulldown form"
   },
   "seatedrow": {
     "name": "Seated row",
@@ -773,31 +731,27 @@ const PROGRAM = {
     "sub": "Diğer row makinesi ya da kablo row",
     "form": [
       {
-        "label": "Çalışan kaslar",
-        "text": "Orta sırt (kürek kemikleri arasındaki kaslar ve trapez), latissimus, biceps ve arka omuz",
+        "label": "Neden bu hareket",
+        "text": "Sırta kalınlık veren yatay çekiş; orta sırtı tamamlar.",
         "steps": []
       },
       {
-        "label": "Kurulum",
-        "text": "Makinedeyse göğüs yastığını, kolların tam uzandığında tutamaçlara ancak yetişeceğin şekilde ayarla. Kablodaysa ayakları platforma bas, dizler hafif bükülü, sırt dik. Avuçların birbirine baktığı dar tutamaç başlamak için en kolayı.",
+        "label": "Tutuş",
+        "text": "Avuçların birbirine baktığı dar tutamaç. Dirsekler gövdeye yakın.",
         "steps": []
       },
       {
-        "label": "Yapılış",
-        "text": "",
-        "steps": [
-          "Kollar uzamış, kürek kemikleri öne doğru açılmış başla.",
-          "Önce kürek kemiklerini geriye çek, sonra dirsekleri gövdenin yanından geriye götür.",
-          "Tutamaç karnının üst kısmına geldiğinde kürek kemiklerini sıkıp 1 saniye bekle.",
-          "2–3 saniyede kollar tam uzayana ve kürek kemikleri yeniden açılana kadar geri bırak."
-        ]
+        "label": "Form",
+        "text": "Önce kürek kemiklerini geriye çek, sonra dirsekleri. Tutamaç karnın üstüne gelince 1 saniye sık. Gövde dik ve sabit.",
+        "steps": []
       },
       {
-        "label": "Sık hatalar",
-        "text": "Belden öne arkaya sallanmak, omuzları kulağa kaldırmak, tutamaçları gövdeye değdirmeden yarım çekmek. Gövden set boyunca dik ve sabit kalmalı.",
+        "label": "Sık hata",
+        "text": "Belden sallanmak, omuzları kulağa kaldırmak.",
         "steps": []
       }
-    ]
+    ],
+    "yt": "seated cable row form"
   },
   "dblateral": {
     "name": "Dumbbell lateral raise",
@@ -806,31 +760,27 @@ const PROGRAM = {
     "bigStep": true,
     "form": [
       {
-        "label": "Çalışan kaslar",
-        "text": "Yan omuz (deltoidin orta kısmı). Omuz genişliğini veren kas bu.",
+        "label": "Neden bu hareket",
+        "text": "Yan omuz; kurulumu yok, iki kol aynı anda, bacak gününde hızlıca biter.",
         "steps": []
       },
       {
-        "label": "Kurulum",
-        "text": "Ayakta, ayaklar kalça genişliğinde, dumbbell'lar yanlarda. Gövdeni çok hafif öne eğ. Beklediğinden hafif bir kiloyla başla; bu hareket kolayca hileye kaçıyor.",
+        "label": "Tutuş",
+        "text": "Avuçlar gövdeye bakarak başlar, yukarıda yere bakar. Dumbbell'ı sıkma.",
         "steps": []
       },
       {
-        "label": "Yapılış",
-        "text": "",
-        "steps": [
-          "Dirsekler hafif bükülü ve bu açı sabit.",
-          "Kolları yana ve çok hafif öne doğru, omuz hizasına kadar kaldır. Elini değil dirseğini kaldırdığını düşün.",
-          "Üstte el, dirsek ve omuz aynı hizada olsun. Eller dirsekten yüksekte olmasın.",
-          "2–3 saniyede indir. Aşağıda kolları gövdeye yapıştırıp dinlenme; hemen sonraki tekrara geç."
-        ]
+        "label": "Form",
+        "text": "Dirsekler hafif bükülü ve sabit. Omuz hizasına kadar kaldır, 2–3 saniyede indir.",
+        "steps": []
       },
       {
-        "label": "Sık hatalar",
-        "text": "Dizlerden ve belden yaylanarak kiloyu savurmak, omuzları kulağa doğru silkmek (yük trapeze kayar), omuz hizasının çok üstüne çıkmak. Son setin sonunda form bozulmaya başladığında seti bitir.",
+        "label": "Sık hata",
+        "text": "Belden yaylanmak, omuz hizasının üstüne çıkmak.",
         "steps": []
       }
-    ]
+    ],
+    "yt": "dumbbell lateral raise form"
   },
   "cablelateral": {
     "name": "Cable lateral raise",
@@ -841,31 +791,27 @@ const PROGRAM = {
     "sub": "Dumbbell lateral raise",
     "form": [
       {
-        "label": "Çalışan kaslar",
-        "text": "Yan omuz. Dumbbell'da kol aşağıdayken yük neredeyse sıfırdır; kabloda kas aşağıda da yük altında kalır.",
+        "label": "Neden bu hareket",
+        "text": "Yan omuz; kabloda kol aşağıdayken de yük var. Üst günlerinde kablo, alt günlerinde dumbbell.",
         "steps": []
       },
       {
-        "label": "Kurulum",
-        "text": "Makarayı en alta ya da el bileği hizasına indir, tek elle tutulan sapı tak. Makineye yan dur; çalışan kol makineden uzak tarafta olsun, kablo vücudunun önünden geçsin. Boş elinle makineyi tut. Çok hafif başla; bu harekette en küçük plaka bile ilk gün yeterli olabilir.",
+        "label": "Tutuş",
+        "text": "Tek sap, avuç yere bakar, bilek düz.",
         "steps": []
       },
       {
-        "label": "Yapılış",
-        "text": "",
-        "steps": [
-          "El karşı kalçanın önünde, dirsek hafif bükülü başla.",
-          "Kolu yana doğru omuz hizasına kadar kaldır. Dirseği kaldırdığını düşün.",
-          "2–3 saniyede başlangıca indir.",
-          "Bir kolun tekrarları bitince yön değiştirip diğer kolu yap."
-        ]
+        "label": "Form",
+        "text": "Makineye yan dur, kablo vücudun önünden geçsin. Kolu omuz hizasına kadar kaldır, dirseği kaldırdığını düşün. Bir kol bitince diğeri.",
+        "steps": []
       },
       {
-        "label": "Sık hatalar",
-        "text": "Gövdeyi makineden uzağa yatırıp savurmak, omzu kulağa silkmek, kolu omuz hizasının üstüne çıkarmak. İlk hafta denedikten sonra sevmezsen bu hareketi de dumbbell lateral raise ile değiştirebiliriz; set ve tekrar aynı kalır.",
+        "label": "Sık hata",
+        "text": "Gövdeyi yana yatırıp savurmak, omzu kulağa silkmek.",
         "steps": []
       }
-    ]
+    ],
+    "yt": "single arm cable lateral raise form"
   },
   "revpecdeck": {
     "name": "Reverse pec deck",
@@ -874,31 +820,27 @@ const PROGRAM = {
     "sub": "Göğsün eğimli sehpaya dayalıyken dumbbell ile reverse fly",
     "form": [
       {
-        "label": "Çalışan kaslar",
-        "text": "Arka omuz (ana), kürek kemikleri arasındaki kaslar (yardımcı)",
+        "label": "Neden bu hareket",
+        "text": "Arka omzun en pratik hareketi; makine gövdeyi sabitler.",
         "steps": []
       },
       {
-        "label": "Kurulum",
-        "text": "Kelebek (pec deck) makinesine yüzün yastığa dönük otur. Kolların başlangıç pozisyonunu ayarlayan pimleri en arkaya al; böylece kollar önde, birbirine yakın başlar. Koltuğu, tutamaçlar omuz hizasına gelecek şekilde ayarla. Dikey tutamaç varsa avuçların birbirine bakacak şekilde tut. Göğsün yastığa dayalı kalsın.",
+        "label": "Tutuş",
+        "text": "Dikey tutamaç varsa avuçlar birbirine bakar. Gevşek tut.",
         "steps": []
       },
       {
-        "label": "Yapılış",
-        "text": "",
-        "steps": [
-          "Kollar önde, dirsekler hafif bükülü başla.",
-          "Kolları geniş bir yay çizerek yanlara ve geriye aç. Hareketi dirsekle yönlendir.",
-          "Kollar gövdenle aynı hizaya geldiğinde dur; daha geriye zorlamana gerek yok.",
-          "2–3 saniyede kollar önde buluşana kadar geri getir."
-        ]
+        "label": "Form",
+        "text": "Göğüs yastıkta. Kolları geniş bir yayla yana ve geriye aç, gövde hizasında dur, yavaşça geri getir.",
+        "steps": []
       },
       {
-        "label": "Sık hatalar",
-        "text": "Kürek kemiklerini sıkıca birbirine çekmek (yük arka omuzdan orta sırta kayar), göğsü yastıktan ayırmak, fazla ağır kiloyla hareketi yarım yapmak. Kürek kemikleri görece sabit kalırsa arka omuzda yanma hissedersin.",
+        "label": "Sık hata",
+        "text": "Kürek kemiklerini sıkıca birbirine çekmek (iş orta sırta kayar).",
         "steps": []
       }
-    ]
+    ],
+    "yt": "reverse pec deck fly form"
   },
   "inclinecurl": {
     "name": "Incline dumbbell curl",
@@ -908,31 +850,27 @@ const PROGRAM = {
     "sub": "Alçak makaradan kablo curl",
     "form": [
       {
-        "label": "Çalışan kaslar",
-        "text": "Biceps. Kol geride olduğu için kas gerilmiş pozisyonda çalışıyor.",
+        "label": "Neden bu hareket",
+        "text": "Biceps'i gergin pozisyonda çalıştırır. Sırt hareketlerinden hemen sonra yapılır.",
         "steps": []
       },
       {
-        "label": "Kurulum",
-        "text": "Ayarlı sehpayı yaklaşık 45–60 derece eğime getir. Sırtın ve başın sehpaya yaslı otur, kolları omuzdan aşağıya serbestçe sarkıt. Avuçlar karşıya baksın.",
+        "label": "Tutuş",
+        "text": "Avuçlar karşıya bakar ve dönmez. İki kol aynı anda.",
         "steps": []
       },
       {
-        "label": "Yapılış",
-        "text": "",
-        "steps": [
-          "Dirsekler gövdenin biraz gerisinde ve sabit.",
-          "Sadece ön kolu hareket ettirerek dumbbell'ları omuza doğru kıvır.",
-          "Üstte 1 saniye sık.",
-          "2–3 saniyede kol tam uzayana kadar indir. Altta biceps'te gerilme hissetmelisin."
-        ]
+        "label": "Form",
+        "text": "Sehpa 45–60 derece, sırt ve baş yaslı, kollar aşağı sarkık. Dirsekler sabit, altta kol tam açılsın.",
+        "steps": []
       },
       {
-        "label": "Sık hatalar",
-        "text": "Dirsekleri öne taşımak (gerilme kaybolur), omuzları sehpadan kaldırmak, altta kolu tam açmamak. Bu hareket ayakta curl'den belirgin daha hafif kiloyla yapılır; bu normal.",
+        "label": "Sık hata",
+        "text": "Dirsekleri öne taşımak, omuzları sehpadan kaldırmak.",
         "steps": []
       }
-    ]
+    ],
+    "yt": "incline dumbbell curl form"
   },
   "preacher": {
     "name": "Preacher curl",
@@ -941,31 +879,27 @@ const PROGRAM = {
     "sub": "Incline dumbbell curl ya da kablo curl",
     "form": [
       {
-        "label": "Çalışan kaslar",
-        "text": "Biceps ve altındaki brakiyalis. Üst kol sehpaya sabitlendiği için hile yapmak zor.",
+        "label": "Neden bu hareket",
+        "text": "Haftanın ana biceps hareketi; kol sabit olduğu için hile yapılamaz, EZ bar'da kilo küçük adımlarla artar.",
         "steps": []
       },
       {
-        "label": "Kurulum",
-        "text": "Preacher sehpasının koltuğunu, koltuk altların yastığın üst kenarına oturacak şekilde ayarla. Üst kolların arkası yastığa tam yaslı olsun. EZ bar (kıvrımlı kısa bar) varsa onu, iç kıvrımlardan omuz genişliğinde tut; bileği düz bardan daha az zorlar. Yoksa iki dumbbell ya da tek kol sırayla.",
+        "label": "Tutuş",
+        "text": "EZ bar, alttan tutuş. Kıvrımların dışa eğimli kısmından, eller omuz genişliğinde.",
         "steps": []
       },
       {
-        "label": "Yapılış",
-        "text": "",
-        "steps": [
-          "Kollar neredeyse tam açık başla. Dirseği sertçe kilitleme.",
-          "Barı omuzlara doğru kıvır. Üst kol yastıktan ayrılmasın.",
-          "Ön kol dik konuma gelmeden hemen önce dur; daha yukarıda kasın üzerindeki yük kalkar.",
-          "3 saniyede kontrollü indir."
-        ]
+        "label": "Form",
+        "text": "Koltuk altları yastığın üst kenarında, üst kol tamamen yaslı. Yavaş in, altta sektirme.",
+        "steps": []
       },
       {
-        "label": "Sık hatalar",
-        "text": "Altta ağırlığı hızla bırakıp dirseği sertçe açmak (bu harekette sakatlık riski olan tek nokta burası), kalçayı koltuktan kaldırıp gövdeyle çekmek, dirsekleri yastıktan kaldırmak. Ayakta curl'den daha hafif kiloyla başla.",
+        "label": "Sık hata",
+        "text": "Altta ağırlığı hızla bırakmak, dirsekleri yastıktan kaldırmak.",
         "steps": []
       }
-    ]
+    ],
+    "yt": "ez bar preacher curl form"
   },
   "ohext": {
     "name": "Overhead cable triceps extension",
@@ -974,31 +908,27 @@ const PROGRAM = {
     "sub": "Otururken tek dumbbell'ı iki elle tutup baş üstü extension",
     "form": [
       {
-        "label": "Çalışan kaslar",
-        "text": "Triceps, özellikle uzun başı. Kol baş üstündeyken uzun baş gerili olduğu için bu pozisyon seçildi.",
+        "label": "Neden bu hareket",
+        "text": "Triceps'in uzun başını gergin pozisyonda çalıştırır.",
         "steps": []
       },
       {
-        "label": "Kurulum",
-        "text": "Kabloya ip (halat) tak, makarayı yaklaşık bel ile göğüs arası yüksekliğe ayarla. Sırtını makineye dön, ipi iki elle tutup başının arkasına al. Bir ayağını öne atıp gövdeni hafifçe öne eğ; bu duruş dengeni sağlar.",
+        "label": "Tutuş",
+        "text": "İp, avuçlar birbirine bakar, topuzların hemen altından.",
         "steps": []
       },
       {
-        "label": "Yapılış",
-        "text": "",
-        "steps": [
-          "Dirsekler başının iki yanında, yukarıyı ve hafifçe önü gösterir; eller ensenin arkasında.",
-          "Üst kolu sabit tutarak dirsekleri tam aç, ipi ileri ve yukarı doğru uzat.",
-          "Sonda triceps'i 1 saniye sık.",
-          "2–3 saniyede eller yeniden ensenin arkasına gelene kadar geri getir. Triceps'te belirgin bir gerilme hissetmelisin."
-        ]
+        "label": "Form",
+        "text": "Sırtın makineye dönük, bir ayak önde. Dirsekler başın yanında sabit; kolları tam aç, eller enseye dönene kadar yavaşça geri getir.",
+        "steps": []
       },
       {
-        "label": "Sık hatalar",
-        "text": "Dirsekleri yanlara açmak, üst kolu her tekrarda öne arkaya oynatmak, beli aşırı çukurlaştırmak. Karnını hafifçe sıkı tutarsan bel sabit kalır.",
+        "label": "Sık hata",
+        "text": "Dirsekleri yana açmak, üst kolu oynatmak. Hafif kiloyla başla.",
         "steps": []
       }
-    ]
+    ],
+    "yt": "overhead rope triceps extension form"
   },
   "pushdown": {
     "name": "Triceps pushdown",
@@ -1007,31 +937,27 @@ const PROGRAM = {
     "sub": "Baş üstü triceps extension",
     "form": [
       {
-        "label": "Çalışan kaslar",
-        "text": "Triceps, ağırlıklı olarak yan ve iç başları. Baş üstü hareketi tamamlıyor.",
+        "label": "Neden bu hareket",
+        "text": "Triceps'in yan ve iç başları; overhead hareketi tamamlar.",
         "steps": []
       },
       {
-        "label": "Kurulum",
-        "text": "Makarayı en üste al, ip ya da düz çubuk tak. Makineye dönük dur, bir adım geride, gövde çok hafif öne eğik. Dirsekleri gövdenin yanına sabitle.",
+        "label": "Tutuş",
+        "text": "İple avuçlar birbirine bakar; düz çubukla avuçlar yere bakar.",
         "steps": []
       },
       {
-        "label": "Yapılış",
-        "text": "",
-        "steps": [
-          "Ön kollar yere paralelden biraz yukarıda başla.",
-          "Sadece dirsekten açarak aşağı it, kollar tam düzleşsin.",
-          "İp kullanıyorsan sonda uçları hafifçe yanlara aç ve 1 saniye sık.",
-          "2–3 saniyede geri bırak; ön kol pazuya yaklaşana kadar çık."
-        ]
+        "label": "Form",
+        "text": "Dirsekler gövdenin yanında sabit. Kollar tam düzleşene kadar it, yavaş bırak.",
+        "steps": []
       },
       {
-        "label": "Sık hatalar",
-        "text": "Dirsekleri öne arkaya oynatmak, gövdeyi ağırlığın üstüne yığıp vücut ağırlığıyla bastırmak, yukarıda hareketi erken kesmek.",
+        "label": "Sık hata",
+        "text": "Dirsekleri oynatmak, vücut ağırlığıyla bastırmak.",
         "steps": []
       }
-    ]
+    ],
+    "yt": "rope triceps pushdown form"
   },
   "legpress": {
     "name": "Leg press",
@@ -1040,32 +966,27 @@ const PROGRAM = {
     "sub": "Hack squat makinesi",
     "form": [
       {
-        "label": "Çalışan kaslar",
-        "text": "Ön bacak (quadriceps) ve kalça (ana), iç bacak (yardımcı)",
+        "label": "Neden bu hareket",
+        "text": "Ağır yüklenebilen, denge gerektirmeyen bacak ve kalça hareketi.",
         "steps": []
       },
       {
-        "label": "Kurulum",
-        "text": "Sırtın ve kalçan yastığa tam yaslı otur. Ayakları platformun ortasına, omuz genişliğinde, parmak uçları hafif dışa dönük yerleştir. Emniyet kollarının nerede olduğunu ve nasıl kapandığını başlamadan öğren.",
+        "label": "Tutuş",
+        "text": "Yan tutamaçlar. Elleri dizlere koyma.",
         "steps": []
       },
       {
-        "label": "Yapılış",
-        "text": "",
-        "steps": [
-          "Platformu it, emniyet kollarını aç. Dizler hafif bükülü başla.",
-          "2–3 saniyede platformu indir. Dizler ayak parmaklarının yönünü takip etsin.",
-          "Kalçan yastıktan kalkmaya başlamadan hemen önce dur. İnebildiğin en derin nokta burası.",
-          "Topuk ve ayağın ortasıyla iterek yukarı çık. Dizleri tam kilitlemeden dur.",
-          "Son tekrardan sonra emniyet kollarını kapat."
-        ]
+        "label": "Form",
+        "text": "Ayaklar platformun ortasının biraz üstünde. Kalça yastıktan kalkmadan inebildiğin kadar derin in. Üstte dizi kilitleme.",
+        "steps": []
       },
       {
-        "label": "Sık hatalar",
-        "text": "Dizleri üstte sertçe kilitlemek, dizleri içe çökertmek, kalçayı yastıktan kaldırıp beli yuvarlamak, çok ağır kiloyla sadece birkaç santim inmek. Elleri dizlere koyup itme; yan tutamaçları tut.",
+        "label": "Sık hata",
+        "text": "Çok ağır kiloyla birkaç santim inmek, dizleri içe çökertmek.",
         "steps": []
       }
-    ]
+    ],
+    "yt": "leg press form"
   },
   "legext": {
     "name": "Leg extension",
@@ -1075,30 +996,27 @@ const PROGRAM = {
     "sub": "Yedeği yok; seansın sonuna bırak",
     "form": [
       {
-        "label": "Çalışan kaslar",
-        "text": "Ön bacak (quadriceps). Leg press'in yeterince çalıştırmadığı rectus femoris kasını da çalıştırıyor; iki hareket birbirini tamamlıyor.",
+        "label": "Neden bu hareket",
+        "text": "Uyluğun ön-orta kasını (rectus femoris) leg press büyütmüyor, bu hareket büyütüyor.",
         "steps": []
       },
       {
-        "label": "Kurulum",
-        "text": "Sırt yastığını, dizlerin makinenin dönme eksenine hizalanacağı ve diz arkan koltuğun kenarına dayanacağı şekilde ayarla. Alt yastık ayak bileğinin hemen üstünde, önde dursun. Başlangıç açısı ayarlanabiliyorsa dizlerin 90 dereceden biraz daha bükülü başlamasını sağla. Yan tutamaçları tut.",
+        "label": "Tutuş",
+        "text": "Yan tutamaçlar, kalça koltuğa baskılı.",
         "steps": []
       },
       {
-        "label": "Yapılış",
-        "text": "",
-        "steps": [
-          "Bacakları tam düzleşene kadar kaldır.",
-          "Üstte ön bacağı 1 saniye sık.",
-          "2–3 saniyede başlangıca indir. Plakaları birbirine vurdurma; değmeden hemen önce sonraki tekrara geç."
-        ]
+        "label": "Form",
+        "text": "Bacakları tam düzleştir, 1 saniye sık, 2–3 saniyede indir.",
+        "steps": []
       },
       {
-        "label": "Sık hatalar",
-        "text": "Kalçayı koltuktan kaldırmak, ağırlığı savurarak kaldırıp düşürmek, üstte bacakları tam açmamak. Sırt yastığı geriye yatırılabiliyorsa biraz yatırmak rectus femoris'teki gerilmeyi artırır. Diz önünde keskin bir ağrı olursa kiloyu azalt ve daha yavaş indir.",
+        "label": "Sık hata",
+        "text": "Savurarak kaldırmak, üstte tam açmamak.",
         "steps": []
       }
-    ]
+    ],
+    "yt": "leg extension form"
   },
   "legcurl": {
     "name": "Seated leg curl",
@@ -1107,31 +1025,27 @@ const PROGRAM = {
     "sub": "Yatarak leg curl",
     "form": [
       {
-        "label": "Çalışan kaslar",
-        "text": "Arka bacak (hamstring). Otururken kalça bükülü olduğu için kas gerili başlıyor; yatarak versiyona göre daha çok büyüme sağlaması buna bağlanıyor.",
+        "label": "Neden bu hareket",
+        "text": "Arka bacağın programdaki tek hareketi.",
         "steps": []
       },
       {
-        "label": "Kurulum",
-        "text": "Sırt yastığını, dizlerin makinenin dönme eksenine (genelde yanda işaretli bir nokta) hizalanacak şekilde ayarla. Alt yastık ayak bileğinin hemen üstünde, arkada dursun. Üst yastığı uylukların üstüne sıkıca indir; uyluklar set boyunca kalkmamalı.",
+        "label": "Tutuş",
+        "text": "Yan tutamaçlar, kalça koltuğa baskılı.",
         "steps": []
       },
       {
-        "label": "Yapılış",
-        "text": "",
-        "steps": [
-          "Bacaklar neredeyse düz başla.",
-          "Topukları kalçana doğru, makinenin izin verdiği kadar geriye çek.",
-          "Sonda 1 saniye sık.",
-          "2–3 saniyede bacaklar yeniden uzayana kadar geri bırak."
-        ]
+        "label": "Form",
+        "text": "Üst yastık uyluklara sıkı. Topukları geriye çek, 1 saniye sık, yavaşça uzat.",
+        "steps": []
       },
       {
-        "label": "Sık hatalar",
-        "text": "Kalçayı koltuktan kaldırmak, ağırlığı geri bırakırken düşürmek, bacakları tam uzatmadan yarım tekrar yapmak. Gövdeni hafifçe öne eğersen arka bacaktaki gerilme artar.",
+        "label": "Sık hata",
+        "text": "Kalçayı kaldırmak, ağırlığı düşürerek bırakmak.",
         "steps": []
       }
-    ]
+    ],
+    "yt": "seated leg curl form"
   },
   "calf": {
     "name": "Calf raise",
@@ -1170,34 +1084,144 @@ const PROGRAM = {
     "name": "Pec deck fly",
     "muscle": "Göğüs",
     "load": "machine",
-    "form": []
+    "form": [
+      {
+        "label": "Neden bu hareket",
+        "text": "Göğsü kollar yorulmadan çalıştırır; press'i 5 set yapmak yerine 3 press + 2 fly.",
+        "steps": []
+      },
+      {
+        "label": "Tutuş",
+        "text": "Dikey tutamaçlar, avuçlar öne bakar. Dirsekler hafif bükülü ve sabit.",
+        "steps": []
+      },
+      {
+        "label": "Form",
+        "text": "Sırt yastıkta. Kolları geniş bir yayla önde birleştir, 1 saniye sık, göğüste gerilme hissedene kadar yavaşça aç.",
+        "steps": []
+      },
+      {
+        "label": "Sık hata",
+        "text": "Omuzları öne yuvarlamak, dirsekleri büküp press'e çevirmek.",
+        "steps": []
+      }
+    ],
+    "yt": "pec deck fly form"
   },
   "bulgarian": {
     "name": "Bulgarian split squat",
     "muscle": "Ön bacak",
     "load": "dumbbell",
     "perLeg": true,
-    "form": []
+    "form": [
+      {
+        "label": "Neden bu hareket",
+        "text": "Kalçayı gergin pozisyonda çalıştıran ana hareket; ön bacağı da çalıştırır.",
+        "steps": []
+      },
+      {
+        "label": "Tutuş",
+        "text": "İlk seanslar ağırlıksız, gerekirse bir elle tutun. Sonra iki elde dumbbell, kollar yanda.",
+        "steps": []
+      },
+      {
+        "label": "Form",
+        "text": "Arka ayağın üstü sehpada. Ağırlık öndeki ayakta. Dümdüz aşağı in, öndeki topukla it. Bir bacak bitince diğeri.",
+        "steps": []
+      },
+      {
+        "label": "Sık hata",
+        "text": "Öndeki ayağı sehpaya çok yakın koymak, arkadaki bacakla itmek.",
+        "steps": []
+      }
+    ],
+    "yt": "bulgarian split squat form"
   },
   "hammercurl": {
     "name": "Hammer curl",
     "muscle": "Biceps",
     "load": "dumbbell",
     "bigStep": true,
-    "form": []
+    "form": [
+      {
+        "label": "Neden bu hareket",
+        "text": "Biceps'in altındaki brakiyalis ve ön kol başka yerde çalışmıyor; kola kalınlık katar.",
+        "steps": []
+      },
+      {
+        "label": "Tutuş",
+        "text": "Avuçlar birbirine bakar ve dönmez. İki kol aynı anda.",
+        "steps": []
+      },
+      {
+        "label": "Form",
+        "text": "Ayakta, dirsekler gövdenin yanında sabit. Omuza doğru kaldır, yavaş indir.",
+        "steps": []
+      },
+      {
+        "label": "Sık hata",
+        "text": "Gövdeyi geriye yatırıp sallanmak, bileği döndürmek.",
+        "steps": []
+      }
+    ],
+    "yt": "dumbbell hammer curl form"
   },
   "kneeraise": {
     "name": "Captain's chair knee raise",
     "muscle": "Karın",
     "load": "bodyweight",
-    "form": []
+    "form": [
+      {
+        "label": "Neden bu hareket",
+        "text": "Karın; kollar yastığa dayandığı için eller yük taşımaz.",
+        "steps": []
+      },
+      {
+        "label": "Tutuş",
+        "text": "Ön kollar yastıklarda, sırt arka yastıkta. Omuzları çökertme.",
+        "steps": []
+      },
+      {
+        "label": "Form",
+        "text": "Dizleri kalça hizasının biraz üstüne çek, sonda leğeni hafifçe yukarı kıvır, yavaş indir.",
+        "steps": []
+      },
+      {
+        "label": "Sık hata",
+        "text": "Bacakları savurmak. Yapamazsan yerine yerde Crunch 3×15–20.",
+        "steps": []
+      }
+    ],
+    "yt": "captain's chair knee raise form"
   },
   "situp": {
     "name": "Decline bench sit-up",
     "muscle": "Karın",
     "load": "bodyweight",
     "sub": "Salonda sehpa yoksa: yerde Crunch, 3 set 15–20 tekrar",
-    "form": []
+    "form": [
+      {
+        "label": "Neden bu hareket",
+        "text": "Karın; zorluğu sehpa eğimi ve plakayla artırılabilir.",
+        "steps": []
+      },
+      {
+        "label": "Tutuş",
+        "text": "Eller göğüste çapraz. Elleri ensede kenetleme.",
+        "steps": []
+      },
+      {
+        "label": "Form",
+        "text": "En düşük eğimle başla. Omurgayı yuvarlayarak kalk, yukarıda 1 saniye sık, kontrollü in.",
+        "steps": []
+      },
+      {
+        "label": "Sık hata",
+        "text": "Savrularak kalkmak, inişte kendini bırakmak. Sehpa yoksa yerine yerde Crunch 3×15–20.",
+        "steps": []
+      }
+    ],
+    "yt": "decline sit up form"
   },
   "crunch": {
     "name": "Crunch",

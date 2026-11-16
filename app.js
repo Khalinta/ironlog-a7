@@ -8,7 +8,7 @@
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
 const DATA_VERSION = 7;
 const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4', 'ironlog.backup.pre-v5', 'ironlog.backup.pre-v6', 'ironlog.backup.pre-v7']; // sürüm geçişlerinden önceki birebir kopyalar
-const APP_VERSION = '5.2.0';
+const APP_VERSION = '5.3.0';
 const LATE_FINISH_MS = 30 * 60000;      // son setten bu kadar sonra bitirilirse bitiş zamanı son set sayılır
 const WAIST_EVERY_DAYS = 14;
 
@@ -1029,7 +1029,7 @@ function renderForm(ex) {
     const label = f.label ? `<b>${esc(f.label)}:</b> ` : '';
     const steps = f.steps && f.steps.length ? `<ol>${f.steps.map((s) => `<li>${esc(s)}</li>`).join('')}</ol>` : '';
     return `<div class="form-part">${label}${esc(f.text)}${steps}</div>`;
-  }).join('');
+  }).join('') + (ex.yt ? `<div class="form-part yt"><b>YouTube'da ara:</b> <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(ex.yt)}" target="_blank" rel="noopener">${esc(ex.yt)}</a></div>` : '');
 }
 
 const MINUS_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg>';

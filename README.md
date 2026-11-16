@@ -87,5 +87,9 @@ eski yuvayı `retiredSlots` altına taşı: eski kayıtlar ayrı hareket olarak 
 - Büyük ağırlık adımı varsayılan olarak açık: dumbbell press'ler, dumbbell curl'ler (incline, hammer), lateral raise'ler (dumbbell, cable). Geçişte incline curl ve cable lateral raise ayarı açılır; kullanıcının kapattığı press ayarı değişmez.
 - Kayıtlar değiştirilmez; ilk açılışta verinin birebir kopyası `ironlog.backup.pre-v7` anahtarına yazılır.
 
+## Hareket bilgileri
+Her hareketin kısa bilgisi `program.js` içinde, hareketin kendi kaydında durur (`exercises[id].form`): "Neden bu hareket", "Tutuş", "Form", "Sık hata". Aynı hareket birden fazla seansta geçse de metin tek yerde tutulur.
+`exercises[id].yt` YouTube'da aranacak metindir; bilgi bölümünün altında YouTube aramasını açan bağlantı olarak görünür. Bilgi, hareket kartındaki "Form" düğmesiyle açılıp kapanır (varsayılan kapalı); Odak görünümünde "Daha fazla" bölümünün içindedir.
+
 ## Yayınlama
 GitHub → Settings → Pages → Source: "Deploy from a branch", Branch: `main`, klasör: `/ (root)`.

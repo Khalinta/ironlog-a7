@@ -675,3 +675,6 @@ body.sheet-open { overflow: hidden; }
 .c-legend i.trend { border-top: 2.5px solid var(--text); }
 .trend-sw { min-height: 44px; font-size: 14px; font-weight: 650; color: var(--text2); padding: 0 2px; }
 .trend-info { margin: 2px 2px 8px; font-size: 14px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* Hareket bilgisi: YouTube araması bağlantısı */
+.form-part.yt a { color: var(--text); font-weight: 650; text-decoration: underline; text-underline-offset: 3px; display: inline-block; min-height: 44px; line-height: 44px; }
