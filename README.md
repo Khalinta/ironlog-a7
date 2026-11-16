@@ -56,7 +56,7 @@ yoksa uygulama açılışta o alanı siler. `bar` boşsa `null`, bütün plakala
 - `manifest.webmanifest`, `icons/` – ana ekran ikonu ve ayarları
 
 ## Veri sürümleri
-Veri `ironlog.v1` anahtarında, sürüm numaralı biçimde saklanır (şu an 6). Uygulama eski veriyle
+Veri `ironlog.v1` anahtarında, sürüm numaralı biçimde saklanır (şu an 7). Uygulama eski veriyle
 açıldığında `migrate()` onu kayıpsız yeni biçime çevirir ve geçiş öncesi kopyayı
 `ironlog.backup.pre-v<sürüm>` anahtarında saklar (Veri sekmesinden indirilebilir).
 
@@ -77,6 +77,15 @@ eski yuvayı `retiredSlots` altına taşı: eski kayıtlar ayrı hareket olarak 
 - Smith machine bench press ve Smith machine incline bench press programdan çıktı (`retired`, yuvaları `retiredSlots` altında); eski kayıtları ayrı hareket olarak durur.
 - "Büyük ağırlık adımı" bu iki press'te ve Dumbbell lateral raise'de varsayılan olarak açıktır (`bigStep: true`): artırma önerisi ilk set üst sınırı 2 tekrar geçince verilir. Ayar kutusundan kapatılabilir; kapatma kalıcıdır.
 - Kayıtlar değiştirilmez; ilk açılışta verinin birebir kopyası `ironlog.backup.pre-v6` anahtarına yazılır.
+
+## 20 setlik program (veri sürümü 7)
+- Her seans 20 set. Süperset yalnızca seated leg curl (4 set) + leg extension (3 set) çiftinde; kol süpersetleri kalktı.
+- Yeni hareketler: Pec deck fly, Bulgarian split squat, Hammer curl, Captain's chair knee raise, Decline bench sit-up (form metinleri henüz yok; `form: []` olan harekette "Form" düğmesi gizlenir).
+- Crunch programdan çıktı (`retired`); eski kayıtları Geçmiş'te ve hareket ilerlemesi listesinde durur.
+- Eski programdan kalan hareketler aynı kimlikle ve mümkün olan her yerde aynı yuva anahtarıyla duruyor; böylece aynı seanstaki önceki kilolar gelmeye devam eder. Programdan çıkan yuvalar `retiredSlots` altında.
+- Yeni hareket alanı `perLeg`: tekrar her bacak için sayılır ("Her bacak" etiketi, "tekrar / bacak" başlığı).
+- Büyük ağırlık adımı varsayılan olarak açık: dumbbell press'ler, dumbbell curl'ler (incline, hammer), lateral raise'ler (dumbbell, cable). Geçişte incline curl ve cable lateral raise ayarı açılır; kullanıcının kapattığı press ayarı değişmez.
+- Kayıtlar değiştirilmez; ilk açılışta verinin birebir kopyası `ironlog.backup.pre-v7` anahtarına yazılır.
 
 ## Yayınlama
 GitHub → Settings → Pages → Source: "Deploy from a branch", Branch: `main`, klasör: `/ (root)`.

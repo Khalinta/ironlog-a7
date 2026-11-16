@@ -6,9 +6,9 @@
    ========================================================= */
 
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
-const DATA_VERSION = 6;
-const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4', 'ironlog.backup.pre-v5', 'ironlog.backup.pre-v6']; // sürüm geçişlerinden önceki birebir kopyalar
-const APP_VERSION = '5.1.0';
+const DATA_VERSION = 7;
+const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4', 'ironlog.backup.pre-v5', 'ironlog.backup.pre-v6', 'ironlog.backup.pre-v7']; // sürüm geçişlerinden önceki birebir kopyalar
+const APP_VERSION = '5.2.0';
 const LATE_FINISH_MS = 30 * 60000;      // son setten bu kadar sonra bitirilirse bitiş zamanı son set sayılır
 const WAIST_EVERY_DAYS = 14;
 
@@ -68,6 +68,9 @@ const slotDef = (type, key) => (sessionDef(type)
   : null);
 /** Kaydın görünen adı her zaman programdaki güncel addan gelir (ad değişince eski kayıtlar da yeni adla görünür). */
 const entryName = (exId, sub, fallback) => { const ex = exDef(exId); return ex ? (sub ? (ex.sub || fallback) : ex.name) : fallback; };
+
+/** Tekrar her kol ya da her bacak için mi sayılıyor: '' | 'kol' | 'bacak' */
+const sideOf = (ex) => (ex && ex.perSide ? 'kol' : ex && ex.perLeg ? 'bacak' : '');
 
 /** Bir setin zorluk hedefi ("1–2 kala", "2 kala", "tükeniş"). */
 function effortFor(slot, j, n, deload) {
@@ -218,7 +221,7 @@ function buildRenameReport(raw) {
   return { at: new Date().toISOString(), dismissed: false, rows: [...map.values()].sort((a, b) => (a.old === a.now) - (b.old === b.now) || a.old.localeCompare(b.old, 'tr')) };
 }
 
-/** Her sürümdeki veriyi (v1–v6) bugünkü biçime getirir. Hiçbir kaydı silmez. */
+/** Her sürümdeki veriyi (v1–v7) bugünkü biçime getirir. Hiçbir kaydı silmez. */
 function migrate(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('Geçersiz veri');
   const from = Number(raw.version) || 1;
@@ -272,6 +275,8 @@ function migrate(raw) {
         st.exSettings[k] = normCfg(v, k);
         // v6: programda "büyük ağırlık adımı açık" olan hareketlerde açık başlar (eski "kapalı" bir seçim değil, varsayılandı)
         if (from < 6 && exDef(k).bigStep) st.exSettings[k].bigStep = true;
+        // v7: dumbbell curl'lerde ve cable lateral raise'de de büyük ağırlık adımı açık başlar
+        if (from < 7 && ['inclinecurl', 'hammercurl', 'cablelateral'].includes(k)) st.exSettings[k].bigStep = true;
       });
     }
     return st;
@@ -624,7 +629,7 @@ function renderHome() {
   const items = def.slots.map((sl) => {
     const ex = exDef(sl.ex);
     const ss = sl.ss ? `<span class="ss-mark">${sl.ssPos === 1 ? 'Süperset' : '+'}</span>` : '';
-    const side = ex.perSide ? ' her kol' : '';
+    const side = sideOf(ex) ? ' her ' + sideOf(ex) : '';
     return `<li class="${sl.ss ? 'ss ss' + sl.ssPos : ''}"><span>${ss}${esc(ex.name)}${sl.optional ? ' <span class="muted small">(isteğe bağlı)</span>' : ''}</span><span class="meta">${sl.sets} × ${rangeText(sl.reps)}${side}</span></li>`;
   }).join('');
 
@@ -650,7 +655,7 @@ function renderHome() {
       </div>
       <div class="seg seg4">${typeBtns}</div>
       ${state.current ? '' : `<div class="row-between opt-row first">
-        <div class="opt-label"><b>Kısa seans</b><span class="muted small">Her hareketten 1 set az, crunch yok</span></div>
+        <div class="opt-label"><b>Kısa seans</b><span class="muted small">Her hareketten 1 set az${PROGRAM.rotation.some((t) => sessionDef(t).slots.some((s) => s.optional)) ? ", isteğe bağlı hareket yok" : ""}</span></div>
         <button class="switch ${ui.shortChoice ? 'on' : ''}" data-act="short" role="switch" aria-checked="${!!ui.shortChoice}" aria-label="Kısa seans"><span></span></button>
       </div>
       ${renderDeloadRow()}`}
@@ -933,7 +938,7 @@ function renderFocus(sess, cur) {
         ${tgt ? `<div class="tgt" id="tgt-${i}-${j}">${esc(tgt)}</div>` : ''}
         <div class="set2-row ${bw ? 'bw' : ''}">
           ${bw ? '' : `<div class="fx-field"><span class="fx-lbl${p.ex.perHand ? ' hand' : ''}">kg${p.ex.perHand ? ' · kol başına' : ''} <small>(±${fmt(weightStep(e.ex))})</small></span>${stepper(i, j, 'w', s.w, `Set ${j + 1} ağırlık`)}</div>`}
-          <div class="fx-field"><span class="fx-lbl">${p.ex.perSide ? 'tekrar / kol' : 'tekrar'}</span>${stepper(i, j, 'r', s.r, `Set ${j + 1} tekrar`, !s.rt)}</div>
+          <div class="fx-field"><span class="fx-lbl">${sideOf(p.ex) ? 'tekrar / ' + sideOf(p.ex) : 'tekrar'}</span>${stepper(i, j, 'r', s.r, `Set ${j + 1} tekrar`, !s.rt)}</div>
         </div>
         ${plateLine(e, i, j)}
         ${repBar(sess, e, i, j)}
@@ -945,7 +950,7 @@ function renderFocus(sess, cur) {
       ${manual && !s.done ? '<button class="btn ghost mini fx-auto" data-act="focus-auto">Otomatik sıraya dön</button>' : ''}
       <button class="fx-more-btn" data-act="toggle" data-key="${moreKey}" aria-expanded="${moreOpen}"><span>Daha fazla</span><span class="muted small">form, alet doluysa, ayar</span><i class="chev">${moreOpen ? '−' : '+'}</i></button>
       ${moreOpen ? `<div class="fx-more">
-        <div class="ex-meta">${p.n} set × ${rangeText(p.sl.reps)} tekrar${p.ex.perSide ? ' (her kol)' : ''} · ${p.restText}</div>
+        <div class="ex-meta">${p.n} set × ${rangeText(p.sl.reps)} tekrar${sideOf(p.ex) ? ` (her ${sideOf(p.ex)})` : ''} · ${p.restText}</div>
         ${p.lastHtml}
         ${p.extra}
         ${p.ssToggle}
@@ -1313,7 +1318,7 @@ function renderExercise(sess, e, i, parts) {
     e.sub ? '<span class="tag">Yedek</span>' : '',
     partner != null ? `<span class="tag ss-tag">Süperset ${sl.ssPos}/2</span>` : '',
     sl.optional ? '<span class="tag">İsteğe bağlı</span>' : '',
-    ex.perSide ? '<span class="tag">Her kol</span>' : '',
+    sideOf(ex) ? `<span class="tag">Her ${sideOf(ex)}</span>` : '',
   ].join('');
 
   const recs = recordFlags(sess)[i];
@@ -1344,7 +1349,7 @@ function renderExercise(sess, e, i, parts) {
       <div class="muted small">${split ? 'Ayrı yapılıyor: önce birinin bütün setleri, sonra diğeri; her setten sonra kendi dinlenmesi.' : 'Salon kalabalıksa aç: iki hareket bu seansta ayrı ayrı yapılır.'}</div></div>` : '';
   const formKey = `form-${i}`, subKey = `sub-${i}`, cfgKey = `cfg-${i}`;
   const toggles = [
-    e.sub ? '' : `<button data-act="toggle" data-key="${formKey}" class="${ui.open.has(formKey) ? 'on' : ''}">Form</button>`,
+    e.sub || !(ex.form || []).length ? '' : `<button data-act="toggle" data-key="${formKey}" class="${ui.open.has(formKey) ? 'on' : ''}">Form</button>`,
     (ex.sub || e.sub) && live ? `<button data-act="toggle" data-key="${subKey}" class="${ui.open.has(subKey) ? 'on' : ''}">Alet doluysa</button>` : '',
     `<button data-act="toggle" data-key="${cfgKey}" class="${ui.open.has(cfgKey) ? 'on' : ''}">Ayar</button>`,
   ].filter(Boolean);
@@ -1397,12 +1402,12 @@ function renderExercise(sess, e, i, parts) {
           ${cfg.note ? `<div class="machine-note">${ICON.gear} ${esc(cfg.note)}</div>` : ''}
         </div>
       </div>
-      <div class="ex-meta">${n} set × ${rangeText(sl.reps)} tekrar${ex.perSide ? ' (her kol)' : ''} · ${restText}</div>
+      <div class="ex-meta">${n} set × ${rangeText(sl.reps)} tekrar${sideOf(ex) ? ` (her ${sideOf(ex)})` : ''} · ${restText}</div>
       ${ssToggle}
       ${lastHtml}
       ${notes}
       <div class="sets">
-        <div class="set2-head ${bodyweight ? 'bw' : ''}">${bodyweight ? '' : `<span>kg${ex.perHand ? ' · kol başına' : ''} <small>(±${fmt(weightStep(e.ex))})</small></span>`}<span>${ex.perSide ? 'tekrar / kol' : 'tekrar'}</span></div>
+        <div class="set2-head ${bodyweight ? 'bw' : ''}">${bodyweight ? '' : `<span>kg${ex.perHand ? ' · kol başına' : ''} <small>(±${fmt(weightStep(e.ex))})</small></span>`}<span>${sideOf(ex) ? 'tekrar / ' + sideOf(ex) : 'tekrar'}</span></div>
         ${sets}
       </div>
       ${live && !sess.deload ? `<div class="top-line" id="top-${i}"${topLineOn(sess, e) ? '' : ' hidden'}>${ICON.up} ${TOP_LINE}</div>` : ''}
@@ -1556,7 +1561,7 @@ function renderSettings() {
     <section class="card">
       <h2>Güncelleme öncesi yedekler</h2>
       <p class="muted small">Uygulamanın veri biçimi her değiştiğinde, değişiklikten önceki verinin birebir kopyası bu telefonda saklanır.</p>
-      ${backupKeys().map((k) => `<button class="btn" data-act="dl-pre-backup" data-key="${k}">${({ 'ironlog.backup.pre-v3': '4 seanslık programa geçiş öncesi', 'ironlog.backup.pre-v4': 'Hareket adları güncellemesi öncesi', 'ironlog.backup.pre-v5': '13 Kasım program güncellemesi öncesi', 'ironlog.backup.pre-v6': 'Dumbbell press güncellemesi öncesi' })[k]} – indir</button>`).join('')}
+      ${backupKeys().map((k) => `<button class="btn" data-act="dl-pre-backup" data-key="${k}">${({ 'ironlog.backup.pre-v3': '4 seanslık programa geçiş öncesi', 'ironlog.backup.pre-v4': 'Hareket adları güncellemesi öncesi', 'ironlog.backup.pre-v5': '13 Kasım program güncellemesi öncesi', 'ironlog.backup.pre-v6': 'Dumbbell press güncellemesi öncesi', 'ironlog.backup.pre-v7': '20 setlik program güncellemesi öncesi' })[k]} – indir</button>`).join('')}
       ${state.renameReport && state.renameReport.dismissed ? '<button class="btn ghost" data-act="show-rename">Ad eşleştirme dökümünü göster</button>' : ''}
     </section>` : ''}
     ${standalone ? '' : `

@@ -9,7 +9,8 @@
      rir12    = her set 1–2 tekrar kala
      rir2     = her set 2 tekrar kala
      lastFail = önceki setler 1–2 tekrar kala, son set tükeniş
-   Hareket alanları: perHand = ağırlık kol başına girilir; bigStep = "büyük ağırlık adımı" varsayılan olarak açık.
+   Hareket alanları: perHand = ağırlık kol başına girilir; perSide = tekrar her kol için; perLeg = tekrar her bacak için;
+   bigStep = "büyük ağırlık adımı" varsayılan olarak açık.
    warmup.plan: ısınma setleri (pct = çalışma kilosunun yüzdesi, bar = boş bar, light = çok hafif). Kaydedilmez.
    rest: setler arası dinlenme (saniye). Süpersette tur sonunda uygulanır.
    ss / ssPos: süperset grubu ve sırası (1 = önce, 2 = sonra; 1'den sonra dinlenme yok).
@@ -33,404 +34,464 @@ const PROGRAM = {
   effortLabels: { rir12: '1–2 kala', rir2: '2 kala', fail: 'tükeniş', deload: '3 kala' },
 
   sessions: {
-  "UA": {
-    "name": "Üst A",
-    "about": "Göğüs, sırt, omuz ve kol. 21 çalışma seti, yaklaşık 70 dakika. Hareketleri yazılı sırayla yap.",
-    "slots": [
-      {
-        "key": "ua1d",
-        "ex": "dbbench",
-        "sets": 4,
-        "reps": [
-          6,
-          10
-        ],
-        "effort": "rir12",
-        "rest": 150,
-        "warmup": {
-          "plan": [{"pct":50,"reps":"8–10"},{"pct":75,"reps":"3–5"}],
-          "sets": true,
-          "text": "Seansın ilk hareketi: çalışma kilonun yaklaşık yarısıyla 8–10 tekrar, sonra dörtte üçüyle 3–5 tekrar."
+    UA: {
+      "name": "Üst A",
+      "about": "Göğüs, sırt, kol ve omuz. 20 çalışma seti. Hareketleri yazılı sırayla yap.",
+      "slots": [
+        {
+          "key": "ua1d",
+          "ex": "dbbench",
+          "sets": 3,
+          "reps": [
+            6,
+            10
+          ],
+          "effort": "rir12",
+          "rest": 120,
+          "warmup": {
+            "plan": [
+              {
+                "pct": 50,
+                "reps": "8–10"
+              },
+              {
+                "pct": 75,
+                "reps": "3–5"
+              }
+            ],
+            "sets": true,
+            "text": "Seansın ilk hareketi: çalışma kilonun yaklaşık yarısıyla 8–10 tekrar, sonra dörtte üçüyle 3–5 tekrar."
+          },
+          "effortNote": "Tükenişe gitme; dumbbell'lar yüzünün üzerinde."
         },
-        "effortNote": "Tükenişe gitme; dumbbell'lar yüzünün üzerinde."
-      },
-      {
-        "key": "ua2",
-        "ex": "latpulldown",
-        "sets": 3,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "rir12",
-        "rest": 120,
-        "warmup": {
-          "plan": [{"pct":50,"reps":"6–8"}],
-          "text": "İtişten çekişe geçtiğin için yarı kiloyla 6–8 tekrarlık tek set."
+        {
+          "key": "ua2",
+          "ex": "latpulldown",
+          "sets": 3,
+          "reps": [
+            8,
+            12
+          ],
+          "effort": "rir12",
+          "rest": 90,
+          "warmup": {
+            "plan": [
+              {
+                "pct": 50,
+                "reps": "6–8"
+              }
+            ],
+            "text": "İtişten çekişe geçtiğin için yarı kiloyla 6–8 tekrarlık tek set."
+          }
+        },
+        {
+          "key": "ua3",
+          "ex": "seatedrow",
+          "sets": 3,
+          "reps": [
+            8,
+            12
+          ],
+          "effort": "rir12",
+          "rest": 90
+        },
+        {
+          "key": "ua6a",
+          "ex": "inclinecurl",
+          "sets": 2,
+          "reps": [
+            8,
+            12
+          ],
+          "effort": "lastFail",
+          "rest": 60
+        },
+        {
+          "key": "ua7p",
+          "ex": "pecdeck",
+          "sets": 2,
+          "reps": [
+            10,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60
+        },
+        {
+          "key": "ua5",
+          "ex": "revpecdeck",
+          "sets": 3,
+          "reps": [
+            12,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60
+        },
+        {
+          "key": "ua8c",
+          "ex": "cablelateral",
+          "sets": 2,
+          "reps": [
+            12,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60,
+          "restNote": "İki kolu arka arkaya yap, sonra 1 dakika dinlen."
+        },
+        {
+          "key": "ua6b",
+          "ex": "ohext",
+          "sets": 2,
+          "reps": [
+            12,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60
         }
-      },
-      {
-        "key": "ua3",
-        "ex": "seatedrow",
-        "sets": 2,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "rir12",
-        "rest": 120
-      },
-      {
-        "key": "ua4",
-        "ex": "dblateral",
-        "sets": 3,
-        "reps": [
-          10,
-          15
-        ],
-        "effort": "lastFail",
-        "rest": 90
-      },
-      {
-        "key": "ua5",
-        "ex": "revpecdeck",
-        "sets": 3,
-        "reps": [
-          10,
-          15
-        ],
-        "effort": "lastFail",
-        "rest": 90
-      },
-      {
-        "key": "ua6a",
-        "ex": "inclinecurl",
-        "sets": 3,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "lastFail",
-        "rest": 90,
-        "ss": "ua6",
-        "ssPos": 1
-      },
-      {
-        "key": "ua6b",
-        "ex": "ohext",
-        "sets": 3,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "lastFail",
-        "rest": 90,
-        "ss": "ua6",
-        "ssPos": 2
-      }
-    ]
-  },
-  "LA": {
-    "name": "Alt A",
-    "about": "Bacak, yan omuz, kol ve isteğe bağlı karın. 21 çalışma seti, yaklaşık 65 dakika.",
-    "slots": [
-      {
-        "key": "la1",
-        "ex": "legpress",
-        "sets": 4,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "rir2",
-        "rest": 150,
-        "warmup": {
-          "plan": [{"pct":50,"reps":"8–10"},{"pct":75,"reps":"3–5"}],
-          "sets": true,
-          "text": "Seansın ilk hareketi: 2 ısınma seti. Yarı kiloyla 8–10 tekrar, 1 dakika dinlenme, sonra yaklaşık dörtte üç kiloyla 3–5 tekrar. İkisi de kolay olmalı; amaç yorulmak değil, hareketi provalamak."
+      ]
+    },
+    LA: {
+      "name": "Alt A",
+      "about": "Bacak, yan omuz, kol ve karın. 20 çalışma seti. Hareketleri yazılı sırayla yap.",
+      "slots": [
+        {
+          "key": "la0b",
+          "ex": "bulgarian",
+          "sets": 3,
+          "reps": [
+            8,
+            12
+          ],
+          "effort": "rir12",
+          "rest": 120,
+          "restNote": "İki bacağı arka arkaya yap, sonra 2 dakika dinlen.",
+          "note": "İlk seanslarda ağırlıksız, gerekirse bir yere tutunarak. Ağırlıksız yaptığın sette kiloya 0 yaz.",
+          "effortNote": "Tükenişe gitme."
         },
-        "effortNote": "Tükenişe gitme; bu harekette tükeniş hem çok yorar hem de ağırlığın altında kalma riski taşır."
-      },
-      {
-        "key": "la2e",
-        "ex": "legext",
-        "sets": 3,
-        "reps": [
-          10,
-          15
-        ],
-        "effort": "lastFail",
-        "rest": 90,
-        "note": "Uyluğun ön-orta kası rectus femoris'i leg press büyütmüyor, leg extension büyütüyor. Sırtlık yatırılabiliyorsa biraz geriye yaslan. Leg press'ten sonra geldiği için Alt B'deki kilonun biraz altında kalman normal. İki seansın kaydını ayrı tut."
-      },
-      {
-        "key": "la2",
-        "ex": "legcurl",
-        "sets": 4,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "lastFail",
-        "rest": 90
-      },
-      {
-        "key": "la4",
-        "ex": "cablelateral",
-        "sets": 3,
-        "reps": [
-          12,
-          15
-        ],
-        "effort": "lastFail",
-        "rest": 90,
-        "warmup": {
-          "plan": [{"light":true,"reps":"8–10"}],
-          "text": "Bacaktan omuza geçtiğin için çok hafif kiloyla 8–10 tekrarlık tek set."
+        {
+          "key": "la2",
+          "ex": "legcurl",
+          "sets": 4,
+          "reps": [
+            10,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60,
+          "ss": "la2",
+          "ssPos": 1,
+          "note": "İkisi aynı makinede. Sıra: curl, extension, curl, extension, curl, extension, curl."
         },
-        "restNote": "İki kolu arka arkaya yap, sonra 1,5 dakika dinlen."
-      },
-      {
-        "key": "la5a",
-        "ex": "preacher",
-        "sets": 2,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "lastFail",
-        "rest": 90,
-        "ss": "la5",
-        "ssPos": 1
-      },
-      {
-        "key": "la5b",
-        "ex": "pushdown",
-        "sets": 2,
-        "reps": [
-          10,
-          15
-        ],
-        "effort": "lastFail",
-        "rest": 90,
-        "ss": "la5",
-        "ssPos": 2
-      },
-      {
-        "key": "la6",
-        "ex": "crunch",
-        "sets": 3,
-        "reps": [
-          15,
-          20
-        ],
-        "effort": "rir12",
-        "rest": 60,
-        "optional": true
-      }
-    ]
-  },
-  "UB": {
-    "name": "Üst B",
-    "about": "Üst A'nın karşılığı: göğüste açı değişiyor, sırtta row öne geçiyor, kol hareketleri yer değiştiriyor. 21 çalışma seti, yaklaşık 70 dakika.",
-    "slots": [
-      {
-        "key": "ub1d",
-        "ex": "inclinedbpress",
-        "sets": 4,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "rir12",
-        "rest": 150,
-        "warmup": {
-          "plan": [{"pct":50,"reps":"8–10"},{"pct":75,"reps":"3–5"}],
-          "sets": true,
-          "text": "Seansın ilk hareketi: çalışma kilonun yaklaşık yarısıyla 8–10 tekrar, sonra dörtte üçüyle 3–5 tekrar."
+        {
+          "key": "la2e",
+          "ex": "legext",
+          "sets": 3,
+          "reps": [
+            10,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60,
+          "ss": "la2",
+          "ssPos": 2
         },
-        "effortNote": "Tükenişe gitme."
-      },
-      {
-        "key": "ub2",
-        "ex": "seatedrow",
-        "sets": 3,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "rir12",
-        "rest": 120,
-        "warmup": {
-          "plan": [{"pct":50,"reps":"6–8"}],
-          "text": "İtişten çekişe geçtiğin için yarı kiloyla 6–8 tekrarlık tek set."
+        {
+          "key": "la3d",
+          "ex": "dblateral",
+          "sets": 2,
+          "reps": [
+            12,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60,
+          "warmup": {
+            "plan": [
+              {
+                "light": true,
+                "reps": "8–10"
+              }
+            ],
+            "text": "Bacaktan omuza geçtiğin için çok hafif kiloyla 8–10 tekrarlık tek set."
+          }
         },
-        "note": "Bu seansta çekişlerin ilki olduğu için Üst A'ya göre biraz daha ağır ya da daha çok tekrar çıkarabilirsin; bu normal. İki seansın kayıtlarını ayrı tut."
-      },
-      {
-        "key": "ub3",
-        "ex": "latpulldown",
-        "sets": 2,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "rir12",
-        "rest": 120,
-        "note": "İstersen bu seansta avuçların birbirine baktığı dar tutamaçla yap; aynı kası biraz farklı açıdan çalıştırır. Hangisini seçersen her Üst B'de onu kullan."
-      },
-      {
-        "key": "ub4",
-        "ex": "cablelateral",
-        "sets": 3,
-        "reps": [
-          12,
-          15
-        ],
-        "effort": "lastFail",
-        "rest": 90,
-        "restNote": "İki kolu arka arkaya yap, sonra 1,5 dakika dinlen."
-      },
-      {
-        "key": "ub5",
-        "ex": "revpecdeck",
-        "sets": 3,
-        "reps": [
-          10,
-          15
-        ],
-        "effort": "lastFail",
-        "rest": 90
-      },
-      {
-        "key": "ub6a",
-        "ex": "preacher",
-        "sets": 3,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "lastFail",
-        "rest": 90,
-        "ss": "ub6",
-        "ssPos": 1,
-        "note": "Preacher curl'de ağırlığı altta kontrollü açmayı unutma."
-      },
-      {
-        "key": "ub6b",
-        "ex": "pushdown",
-        "sets": 3,
-        "reps": [
-          10,
-          15
-        ],
-        "effort": "lastFail",
-        "rest": 90,
-        "ss": "ub6",
-        "ssPos": 2
-      }
-    ]
-  },
-  "LB": {
-    "name": "Alt B",
-    "about": "Alt A'nın karşılığı: ön bacak leg extension ile başlıyor, ardından kalça için 3 set leg press geliyor; yan omuzda dumbbell, kolda incline curl ve overhead triceps var. 21 çalışma seti, yaklaşık 60–65 dakika.",
-    "slots": [
-      {
-        "key": "lb1",
-        "ex": "legext",
-        "sets": 4,
-        "reps": [
-          10,
-          15
-        ],
-        "effort": "lastFail",
-        "rest": 90,
-        "warmup": {
-          "plan": [{"pct":50,"reps":"10"},{"pct":75,"reps":"5"}],
-          "sets": true,
-          "text": "Seansın ilk hareketi: yarı kiloyla 10 tekrar, sonra dörtte üç kiloyla 5 tekrar."
+        {
+          "key": "la5a",
+          "ex": "preacher",
+          "sets": 3,
+          "reps": [
+            8,
+            12
+          ],
+          "effort": "lastFail",
+          "rest": 60,
+          "note": "EZ bar ile."
+        },
+        {
+          "key": "la5b",
+          "ex": "pushdown",
+          "sets": 2,
+          "reps": [
+            12,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60
+        },
+        {
+          "key": "la7k",
+          "ex": "kneeraise",
+          "sets": 3,
+          "reps": [
+            10,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60
         }
-      },
-      {
-        "key": "lb2p",
-        "ex": "legpress",
-        "sets": 3,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "rir2",
-        "rest": 150,
-        "effortNote": "Tükenişe gitme.",
-        "note": "Kalça büyümesini derinlik belirliyor: kalçan yastıktan kalkmadan inebildiğin en derin noktaya in. Leg extension'dan sonra geldiği için Alt A'daki kilonun biraz altında kalman normal. İki seansın kaydını ayrı tut."
-      },
-      {
-        "key": "lb2",
-        "ex": "legcurl",
-        "sets": 4,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "lastFail",
-        "rest": 90
-      },
-      {
-        "key": "lb4",
-        "ex": "dblateral",
-        "sets": 3,
-        "reps": [
-          10,
-          15
-        ],
-        "effort": "lastFail",
-        "rest": 90,
-        "warmup": {
-          "plan": [{"light":true,"reps":"8–10"}],
-          "text": "Bacaktan omuza geçtiğin için çok hafif kiloyla 8–10 tekrarlık tek set."
+      ]
+    },
+    UB: {
+      "name": "Üst B",
+      "about": "Üst A'nın karşılığı: göğüste eğimli press, sırtta row öne geçiyor, biceps'te hammer curl. 20 çalışma seti. Hareketleri yazılı sırayla yap.",
+      "slots": [
+        {
+          "key": "ub1d",
+          "ex": "inclinedbpress",
+          "sets": 3,
+          "reps": [
+            8,
+            12
+          ],
+          "effort": "rir12",
+          "rest": 120,
+          "warmup": {
+            "plan": [
+              {
+                "pct": 50,
+                "reps": "8–10"
+              },
+              {
+                "pct": 75,
+                "reps": "3–5"
+              }
+            ],
+            "sets": true,
+            "text": "Seansın ilk hareketi: çalışma kilonun yaklaşık yarısıyla 8–10 tekrar, sonra dörtte üçüyle 3–5 tekrar."
+          },
+          "effortNote": "Tükenişe gitme.",
+          "note": "Sehpa yaklaşık 30 derece."
+        },
+        {
+          "key": "ub2",
+          "ex": "seatedrow",
+          "sets": 3,
+          "reps": [
+            8,
+            12
+          ],
+          "effort": "rir12",
+          "rest": 90,
+          "warmup": {
+            "plan": [
+              {
+                "pct": 50,
+                "reps": "6–8"
+              }
+            ],
+            "text": "İtişten çekişe geçtiğin için yarı kiloyla 6–8 tekrarlık tek set."
+          },
+          "note": "Bu seansta çekişlerin ilki olduğu için Üst A'ya göre biraz daha ağır ya da daha çok tekrar çıkarabilirsin; bu normal. İki seansın kayıtlarını ayrı tut."
+        },
+        {
+          "key": "ub3",
+          "ex": "latpulldown",
+          "sets": 3,
+          "reps": [
+            8,
+            12
+          ],
+          "effort": "rir12",
+          "rest": 90,
+          "note": "İstersen bu seansta avuçların birbirine baktığı dar tutamaçla yap; aynı kası biraz farklı açıdan çalıştırır. Hangisini seçersen her Üst B'de onu kullan."
+        },
+        {
+          "key": "ub7h",
+          "ex": "hammercurl",
+          "sets": 2,
+          "reps": [
+            10,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60,
+          "note": "İki kol aynı anda."
+        },
+        {
+          "key": "ub8p",
+          "ex": "pecdeck",
+          "sets": 2,
+          "reps": [
+            10,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60
+        },
+        {
+          "key": "ub5",
+          "ex": "revpecdeck",
+          "sets": 3,
+          "reps": [
+            12,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60
+        },
+        {
+          "key": "ub4",
+          "ex": "cablelateral",
+          "sets": 2,
+          "reps": [
+            12,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60,
+          "restNote": "İki kolu arka arkaya yap, sonra 1 dakika dinlen."
+        },
+        {
+          "key": "ub9o",
+          "ex": "ohext",
+          "sets": 2,
+          "reps": [
+            12,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60
         }
-      },
-      {
-        "key": "lb5a",
-        "ex": "inclinecurl",
-        "sets": 2,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "lastFail",
-        "rest": 90,
-        "ss": "lb5",
-        "ssPos": 1
-      },
-      {
-        "key": "lb5b",
-        "ex": "ohext",
-        "sets": 2,
-        "reps": [
-          8,
-          12
-        ],
-        "effort": "lastFail",
-        "rest": 90,
-        "ss": "lb5",
-        "ssPos": 2
-      },
-      {
-        "key": "lb6",
-        "ex": "crunch",
-        "sets": 3,
-        "reps": [
-          15,
-          20
-        ],
-        "effort": "rir12",
-        "rest": 60,
-        "optional": true
-      }
-    ]
-  }
-},
+      ]
+    },
+    LB: {
+      "name": "Alt B",
+      "about": "Alt A'nın karşılığı: ön bacakta Bulgarian split squat yerine leg press, karında decline bench sit-up. 20 çalışma seti. Hareketleri yazılı sırayla yap.",
+      "slots": [
+        {
+          "key": "lb2p",
+          "ex": "legpress",
+          "sets": 3,
+          "reps": [
+            8,
+            12
+          ],
+          "effort": "rir12",
+          "rest": 120,
+          "warmup": {
+            "plan": [
+              {
+                "pct": 50,
+                "reps": "8–10"
+              },
+              {
+                "pct": 75,
+                "reps": "3–5"
+              }
+            ],
+            "sets": true,
+            "text": "Seansın ilk hareketi: çalışma kilonun yaklaşık yarısıyla 8–10 tekrar, sonra dörtte üçüyle 3–5 tekrar."
+          },
+          "effortNote": "Tükenişe gitme.",
+          "note": "Ayaklar platformun üst kısmında, derin iniş."
+        },
+        {
+          "key": "lb2",
+          "ex": "legcurl",
+          "sets": 4,
+          "reps": [
+            10,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60,
+          "ss": "lb2",
+          "ssPos": 1,
+          "note": "İkisi aynı makinede. Sıra: curl, extension, curl, extension, curl, extension, curl."
+        },
+        {
+          "key": "lb1",
+          "ex": "legext",
+          "sets": 3,
+          "reps": [
+            10,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60,
+          "ss": "lb2",
+          "ssPos": 2
+        },
+        {
+          "key": "lb4",
+          "ex": "dblateral",
+          "sets": 2,
+          "reps": [
+            12,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60,
+          "warmup": {
+            "plan": [
+              {
+                "light": true,
+                "reps": "8–10"
+              }
+            ],
+            "text": "Bacaktan omuza geçtiğin için çok hafif kiloyla 8–10 tekrarlık tek set."
+          }
+        },
+        {
+          "key": "lb6p",
+          "ex": "preacher",
+          "sets": 3,
+          "reps": [
+            8,
+            12
+          ],
+          "effort": "lastFail",
+          "rest": 60,
+          "note": "EZ bar ile."
+        },
+        {
+          "key": "lb7t",
+          "ex": "pushdown",
+          "sets": 2,
+          "reps": [
+            12,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60
+        },
+        {
+          "key": "lb8s",
+          "ex": "situp",
+          "sets": 3,
+          "reps": [
+            10,
+            15
+          ],
+          "effort": "lastFail",
+          "rest": 60
+        }
+      ]
+    },
+  },
 
   exercises: {
   "dbbench": {
@@ -773,6 +834,7 @@ const PROGRAM = {
   },
   "cablelateral": {
     "name": "Cable lateral raise",
+    "bigStep": true,
     "muscle": "Yan omuz",
     "load": "machine",
     "perSide": true,
@@ -842,6 +904,7 @@ const PROGRAM = {
     "name": "Incline dumbbell curl",
     "muscle": "Biceps",
     "load": "dumbbell",
+    "bigStep": true,
     "sub": "Alçak makaradan kablo curl",
     "form": [
       {
@@ -1103,9 +1166,43 @@ const PROGRAM = {
       }
     ]
   },
+  "pecdeck": {
+    "name": "Pec deck fly",
+    "muscle": "Göğüs",
+    "load": "machine",
+    "form": []
+  },
+  "bulgarian": {
+    "name": "Bulgarian split squat",
+    "muscle": "Ön bacak",
+    "load": "dumbbell",
+    "perLeg": true,
+    "form": []
+  },
+  "hammercurl": {
+    "name": "Hammer curl",
+    "muscle": "Biceps",
+    "load": "dumbbell",
+    "bigStep": true,
+    "form": []
+  },
+  "kneeraise": {
+    "name": "Captain's chair knee raise",
+    "muscle": "Karın",
+    "load": "bodyweight",
+    "form": []
+  },
+  "situp": {
+    "name": "Decline bench sit-up",
+    "muscle": "Karın",
+    "load": "bodyweight",
+    "sub": "Salonda sehpa yoksa: yerde Crunch, 3 set 15–20 tekrar",
+    "form": []
+  },
   "crunch": {
     "name": "Crunch",
-    "muscle": "Karın (isteğe bağlı)",
+    "retired": true,
+    "muscle": "Karın",
     "load": "bodyweight",
     "optional": true,
     "form": [
@@ -1146,13 +1243,10 @@ const PROGRAM = {
   /* Programdan çıkarılmış hareket yuvaları: yeni seanslarda yer almaz; eski kayıtları geçmişte,
      düzenlemede ve ilerleme listesinde ayrı hareket olarak görünmeye devam eder. */
   retiredSlots: {
-    UA: [{ key: 'ua1', ex: 'chestpress', sets: 4, reps: [6, 10], effort: 'rir12', rest: 150 },
-      { key: 'ua1s', ex: 'smithbench', sets: 4, reps: [6, 10], effort: 'rir12', rest: 150 }],
-    // Smith press'lerin yerine dumbbell press'ler geldi; eski kayıtlar ayrı hareket olarak durur
-    UB: [{ key: 'ub1', ex: 'smithincline', sets: 4, reps: [8, 12], effort: 'rir12', rest: 150 }],
-    // Calf raise 13 Kasım'da programdan çıkarıldı; eski kayıtları geçmişte durur
-    LA: [{ key: 'la3', ex: 'calf', sets: 3, reps: [8, 12], effort: 'lastFail', rest: 75 }],
-    LB: [{ key: 'lb3', ex: 'calf', sets: 3, reps: [8, 12], effort: 'lastFail', rest: 75 }],
+    UA: [{"key":"ua1","ex":"chestpress","sets":4,"reps":[6,10],"effort":"rir12","rest":150},{"key":"ua1s","ex":"smithbench","sets":4,"reps":[6,10],"effort":"rir12","rest":150},{"key":"ua4","ex":"dblateral","sets":3,"reps":[10,15],"effort":"lastFail","rest":90}],
+    LA: [{"key":"la3","ex":"calf","sets":3,"reps":[8,12],"effort":"lastFail","rest":75},{"key":"la1","ex":"legpress","sets":4,"reps":[8,12],"effort":"rir2","rest":150},{"key":"la4","ex":"cablelateral","sets":3,"reps":[12,15],"effort":"lastFail","rest":90},{"key":"la6","ex":"crunch","sets":3,"reps":[15,20],"effort":"rir12","rest":60,"optional":true}],
+    UB: [{"key":"ub1","ex":"smithincline","sets":4,"reps":[8,12],"effort":"rir12","rest":150},{"key":"ub6a","ex":"preacher","sets":3,"reps":[8,12],"effort":"lastFail","rest":90},{"key":"ub6b","ex":"pushdown","sets":3,"reps":[10,15],"effort":"lastFail","rest":90}],
+    LB: [{"key":"lb3","ex":"calf","sets":3,"reps":[8,12],"effort":"lastFail","rest":75},{"key":"lb5a","ex":"inclinecurl","sets":2,"reps":[8,12],"effort":"lastFail","rest":90},{"key":"lb5b","ex":"ohext","sets":2,"reps":[8,12],"effort":"lastFail","rest":90},{"key":"lb6","ex":"crunch","sets":3,"reps":[15,20],"effort":"rir12","rest":60,"optional":true}],
   },
 
   /* Yük azaltma (deload): kilolar aynı, set sayısı yarıya (yukarı yuvarlanır: 4→2, 3→2, 2→1), her set 3 tekrar kala. */
@@ -1180,7 +1274,7 @@ const PROGRAM = {
   firstTime: "İlk hafta: hafif başla, 1–2 tekrar kalana kadar kiloyu artır.",
 
   /* "Büyük ağırlık adımı" açık hareketlerde artırma önerisi, üst sınırın bu kadar tekrar üstünde verilir */
-  bigStep: { extraReps: 2, text: "Kilo adımı çok büyükse: Lateral raise ya da curl gibi hafif hareketlerde bir sonraki dumbbell ya da plaka yüzde 20–30 artış demek olabilir. O zaman üst sınırı 2–3 tekrar geçene kadar aynı kiloda kal (örneğin 10–15 yerine 17–18'e kadar çık), sonra artır. Bazı salonlarda makine plakalarının arasına takılan 1–2,5 kg'lık ek ağırlıklar olur; varsa onları kullan." },
+  bigStep: { extraReps: 2, text: "Kilo adımı büyük olan hareketlerde (dumbbell curl'ler, lateral raise'ler, dumbbell press'ler) bir sonraki kilo yüzde 20–30 artış demek olabilir. O zaman kiloyu artırmadan önce ilk sette üst sınırı 2 tekrar geç (örneğin 12–15 yerine 17'ye çık), sonra artır. Bazı salonlarda makine plakalarının arasına takılan 1–2,5 kg'lık ek ağırlıklar olur; varsa onları kullan." },
 
   /* Aynı seans türünde bu kadar seans üst üste artış yoksa "kiloyu koru" notu (uyarı değil) */
   hold: { sessions: 3, short: "Kiloyu koru", text: "Bu harekette 3 seans üst üste artış yok: kiloyu koru ve zorlamayı artırma. Tek seansa değil 3–4 haftalık gidişe bak; kalori açığında kiloları korumak başarıdır." },
@@ -1194,15 +1288,15 @@ const PROGRAM = {
 
   /* Haftalık set bütçesi (doğrudan setler, hafta toplamı) */
   weeklyTargets: {
-  "Yan omuz": 12,
+  "Göğüs": 10,
+  "Sırt": 12,
   "Biceps": 10,
-  "Triceps": 10,
-  "Sırt": 10,
-  "Göğüs": 8,
+  "Triceps": 8,
+  "Yan omuz": 8,
   "Arka omuz": 6,
-  "Ön bacak": 14,
+  "Ön bacak": 12,
   "Arka bacak": 8,
-  "Karın (isteğe bağlı)": 6
+  "Karın": 6
 },
 
   /* Genel kurallar ("Temel kavramlar ve her seansta geçerli kurallar" bölümü) */
@@ -1222,9 +1316,9 @@ const PROGRAM = {
     {
       "title": "Setleri ne kadar zorlayacaksın",
       "lines": [
-        "Varsayılan: RIR 1–2. Seti bitirdiğinde \"bir iki tane daha çıkardı\" diyebilmelisin. Son tekrarlar belirgin yavaşlamalı; yavaşlamıyorsa set hafif kalmıştır.",
-        "Tek eklemli hareketlerin son seti: tükeniş. Lateral raise, reverse pec deck, curl, triceps, leg extension ve leg curl bu gruba girer. Sadece son sette, formu bozmadan.",
-        "Büyük hareketlerde tükeniş yok. Dumbbell bench press, incline dumbbell press, leg press, lat pulldown ve row her zaman RIR 1–2'de biter.",
+        "Varsayılan: Setler 1–2 tekrar kala biter. Seti bitirdiğinde \"bir iki tane daha çıkardı\" diyebilmelisin. Son tekrarlar belirgin yavaşlamalı; yavaşlamıyorsa set hafif kalmıştır.",
+        "\"Son set tükenişe\" yazan hareketlerde yalnızca son set tükenişe kadar gider; önceki setler 1–2 tekrar kala biter. Formu bozmadan.",
+        "\"Tükenişe gitmez\" yazanlarda hiçbir set tükenişe gitmez: dumbbell bench press, incline dumbbell press, lat pulldown, seated row, leg press ve Bulgarian split squat.",
         "Tahminini ayarlamak: İnsanlar kalan tekrarı ortalama 1 tekrar hatayla tahmin ediyor; yeni başlayan ve aradan dönenler genelde erken bırakıyor (Biolayne, Halperin ve ark. özeti). İlk hafta tek eklemli hareketlerin son setinde tükenişe gidip sınırını gör.",
         "Ayda bir tahmin kontrolü: Büyük hareketlerde hiç tükenişe gitmediğin için \"1–2 tekrar kaldı\" tahminin oralarda hiç sınanmıyor. 3–4 haftada bir, lat pulldown ve seated row'da son seti tükenişe kadar götür ve tahmininle karşılaştır. Leg press'te bunu ancak emniyet kolları ayarlıyken yap. Dumbbell press'lerde yapma. Ek kontrol: aynı kiloyla son setin tekrarı ilk setle aynı çıkıyorsa ilk setler büyük olasılıkla fazla hafif bitmiştir."
       ]
@@ -1232,31 +1326,12 @@ const PROGRAM = {
     {
       "title": "Setler arasında dinlenme",
       "table": {
-        "head": [
-          "Hareket grubu",
-          "Dinlenme"
-        ],
+        "head": ["Hareket grubu", "Dinlenme"],
         "rows": [
-          [
-            "Dumbbell bench press, incline dumbbell press, leg press",
-            "2–3 dakika"
-          ],
-          [
-            "Lat pulldown, seated row",
-            "2 dakika"
-          ],
-          [
-            "Lateral raise, reverse pec deck, leg extension, leg curl",
-            "1,5 dakika (vaktin darsa 1 dakika)"
-          ],
-          [
-            "Biceps + triceps süperseti",
-            "İki hareket arasında bekleme yok, tur bitince 1,5 dakika"
-          ],
-          [
-            "Crunch",
-            "1 dakika"
-          ]
+          ["Dumbbell bench press, incline dumbbell press, leg press, Bulgarian split squat", "2 dakika"],
+          ["Lat pulldown, seated row", "1,5 dakika"],
+          ["Diğer tüm hareketler", "1 dakika"],
+          ["Seated leg curl + leg extension süperseti", "Curl'den sonra beklemeden extension, extension'dan sonra 1 dakika"]
         ]
       },
       "lines": [
@@ -1287,11 +1362,10 @@ const PROGRAM = {
     {
       "title": "Süperset nasıl yapılır",
       "lines": [
-        "Biceps hareketinin 1. setini yap.",
-        "Beklemeden triceps hareketine geç ve 1. setini yap.",
-        "1–1,5 dakika dinlen.",
-        "Aynı turu set sayısı kadar tekrarla.",
-        "İki aleti aynı anda tutamayacak kadar kalabalıksa: önce biceps'in tüm setlerini 1–1,5 dakika dinlenmeyle bitir, sonra triceps'e geç. Seans yaklaşık 5 dakika uzar, sonuç değişmez."
+        "Süperset yalnızca seated leg curl + leg extension çiftinde var; ikisi aynı makinede. Kol hareketleri artık süperset değil; biceps ve triceps hareketleri ayrı ayrı yapılıyor.",
+        "Sıra: curl, extension, curl, extension, curl, extension, curl (curl 4 set, extension 3 set).",
+        "Curl'den sonra beklemeden extension'a geç; extension'dan sonra 1 dakika dinlen.",
+        "İkisinde de son set tükenişe kadar gider."
       ]
     },
     {
