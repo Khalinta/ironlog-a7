@@ -8,7 +8,7 @@
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
 const DATA_VERSION = 7;
 const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4', 'ironlog.backup.pre-v5', 'ironlog.backup.pre-v6', 'ironlog.backup.pre-v7']; // sürüm geçişlerinden önceki birebir kopyalar
-const APP_VERSION = '5.3.0';
+const APP_VERSION = '5.3.1';
 const LATE_FINISH_MS = 30 * 60000;      // son setten bu kadar sonra bitirilirse bitiş zamanı son set sayılır
 const WAIST_EVERY_DAYS = 14;
 
@@ -948,7 +948,7 @@ function renderFocus(sess, cur) {
       ${sess.deload ? '' : `<div class="top-line" id="top-${i}"${topLineOn(sess, e) ? '' : ' hidden'}>${ICON.up} ${TOP_LINE}</div>`}
       ${s.done ? '' : `<div class="fx-next" id="fx-next">${focusNextHtml(sess, cur)}</div>`}
       ${manual && !s.done ? '<button class="btn ghost mini fx-auto" data-act="focus-auto">Otomatik sıraya dön</button>' : ''}
-      <button class="fx-more-btn" data-act="toggle" data-key="${moreKey}" aria-expanded="${moreOpen}"><span>Daha fazla</span><span class="muted small">form, alet doluysa, ayar</span><i class="chev">${moreOpen ? '−' : '+'}</i></button>
+      <button class="fx-more-btn" data-act="toggle" data-key="${moreKey}" aria-expanded="${moreOpen}"><span>Daha fazla</span><span class="muted small">bilgi, alet doluysa, ayar</span><i class="chev">${moreOpen ? '−' : '+'}</i></button>
       ${moreOpen ? `<div class="fx-more">
         <div class="ex-meta">${p.n} set × ${rangeText(p.sl.reps)} tekrar${sideOf(p.ex) ? ` (her ${sideOf(p.ex)})` : ''} · ${p.restText}</div>
         ${p.lastHtml}
@@ -1349,7 +1349,7 @@ function renderExercise(sess, e, i, parts) {
       <div class="muted small">${split ? 'Ayrı yapılıyor: önce birinin bütün setleri, sonra diğeri; her setten sonra kendi dinlenmesi.' : 'Salon kalabalıksa aç: iki hareket bu seansta ayrı ayrı yapılır.'}</div></div>` : '';
   const formKey = `form-${i}`, subKey = `sub-${i}`, cfgKey = `cfg-${i}`;
   const toggles = [
-    e.sub || !(ex.form || []).length ? '' : `<button data-act="toggle" data-key="${formKey}" class="${ui.open.has(formKey) ? 'on' : ''}">Form</button>`,
+    e.sub || !(ex.form || []).length ? '' : `<button data-act="toggle" data-key="${formKey}" class="${ui.open.has(formKey) ? 'on' : ''}">Bilgi</button>`,
     (ex.sub || e.sub) && live ? `<button data-act="toggle" data-key="${subKey}" class="${ui.open.has(subKey) ? 'on' : ''}">Alet doluysa</button>` : '',
     `<button data-act="toggle" data-key="${cfgKey}" class="${ui.open.has(cfgKey) ? 'on' : ''}">Ayar</button>`,
   ].filter(Boolean);
@@ -1390,7 +1390,7 @@ function renderExercise(sess, e, i, parts) {
       skip: sl.optional && live ? `<button class="btn ghost mini" data-act="skip" data-ex="${i}" style="margin-top:10px">Bugün atla</button>` : '',
       toggles: `<div class="toggles" style="grid-template-columns:repeat(${toggles.length},1fr)">${toggles.join('')}</div>`,
       ssToggle,
-      boxes: `${ui.open.has(formKey) && !e.sub ? `<div class="infobox"><strong>Form</strong>${renderForm(ex)}</div>` : ''}${ui.open.has(subKey) ? subBox : ''}${ui.open.has(cfgKey) ? cfgBox : ''}` };
+      boxes: `${ui.open.has(formKey) && !e.sub ? `<div class="infobox"><strong>Bilgi</strong>${renderForm(ex)}</div>` : ''}${ui.open.has(subKey) ? subBox : ''}${ui.open.has(cfgKey) ? cfgBox : ''}` };
   }
   return `
     <article class="card ex ${allDone ? 'all-done' : ''} ${partner != null ? 'in-ss ss' + sl.ssPos : ''}" id="ex-${i}">
@@ -1413,7 +1413,7 @@ function renderExercise(sess, e, i, parts) {
       ${live && !sess.deload ? `<div class="top-line" id="top-${i}"${topLineOn(sess, e) ? '' : ' hidden'}>${ICON.up} ${TOP_LINE}</div>` : ''}
       ${sl.optional && live ? `<button class="btn ghost mini" data-act="skip" data-ex="${i}" style="margin-top:10px">Bugün atla</button>` : ''}
       <div class="toggles" style="grid-template-columns:repeat(${toggles.length},1fr)">${toggles.join('')}</div>
-      ${ui.open.has(formKey) && !e.sub ? `<div class="infobox"><strong>Form</strong>${renderForm(ex)}</div>` : ''}
+      ${ui.open.has(formKey) && !e.sub ? `<div class="infobox"><strong>Bilgi</strong>${renderForm(ex)}</div>` : ''}
       ${ui.open.has(subKey) ? subBox : ''}
       ${ui.open.has(cfgKey) ? cfgBox : ''}
     </article>`;
