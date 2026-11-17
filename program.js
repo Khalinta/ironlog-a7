@@ -219,16 +219,16 @@ const PROGRAM = {
           }
         },
         {
-          "key": "la5a",
-          "ex": "preacher",
+          "key": "la5s",
+          "ex": "sapreacher",
           "sets": 3,
           "reps": [
             8,
             12
           ],
           "effort": "lastFail",
-          "rest": 60,
-          "note": "EZ bar ile."
+          "rest": 30,
+          "restNote": "Kollar sırayla: sol, sağ, sol, sağ. Kol değiştirirken 20–30 saniye, ayrıca bekleme yok."
         },
         {
           "key": "la5b",
@@ -456,16 +456,16 @@ const PROGRAM = {
           }
         },
         {
-          "key": "lb6p",
-          "ex": "preacher",
+          "key": "lb6s",
+          "ex": "sapreacher",
           "sets": 3,
           "reps": [
             8,
             12
           ],
           "effort": "lastFail",
-          "rest": 60,
-          "note": "EZ bar ile."
+          "rest": 30,
+          "restNote": "Kollar sırayla: sol, sağ, sol, sağ. Kol değiştirirken 20–30 saniye, ayrıca bekleme yok."
         },
         {
           "key": "lb7t",
@@ -856,7 +856,7 @@ const PROGRAM = {
       },
       {
         "label": "Tutuş",
-        "text": "Avuçlar karşıya bakar ve dönmez. İki kol aynı anda.",
+        "text": "Avuçlar karşıya bakar ve dönmez. İki kol aynı anda. Sol kol daha zayıf olduğu için sol kol bitince seti bitir; sağla fazladan tekrar yapma.",
         "steps": []
       },
       {
@@ -872,8 +872,49 @@ const PROGRAM = {
     ],
     "yt": "incline dumbbell curl form"
   },
+  "sapreacher": {
+    "name": "Single-arm dumbbell preacher curl",
+    "muscle": "Biceps",
+    "load": "dumbbell",
+    "perSide": true,
+    "bigStep": true,
+    "form": [
+      {
+        "label": "Neden bu hareket",
+        "text": "Haftanın ana biceps hareketi. Tek kol yapılıyor, çünkü sol kol daha zayıf; her kol kendi yükünü taşıyor.",
+        "steps": []
+      },
+      {
+        "label": "Sol kol kuralı",
+        "text": "Her sete sol kolla başla. Sol kaç tekrar çıkardıysa sağ kol aynı kiloyla aynı sayıda yapar, fazlasını değil. Son sette sol kol tükenişe gider, sağ aynı sayıda durur.",
+        "steps": []
+      },
+      {
+        "label": "Tutuş",
+        "text": "Avuç yukarı bakar (alttan tutuş), bilek düz. Boştaki el sehpayı tutar.",
+        "steps": []
+      },
+      {
+        "label": "Form",
+        "text": "Koltuk altı yastığın üst kenarında, üst kol tamamen yaslı. Dumbbell'ı omuza doğru kıvır, yavaş in, altta sektirme.",
+        "steps": []
+      },
+      {
+        "label": "Sık hata",
+        "text": "Altta ağırlığı hızla bırakmak, dirseği yastıktan kaldırmak.",
+        "steps": []
+      },
+      {
+        "label": "Kilo",
+        "text": "Sol kol ilk sette 14 tekrara ulaşmadan bir üst dumbbell'a geçme. Kiloyu hep sol kol belirler.",
+        "steps": []
+      }
+    ],
+    "yt": "single arm dumbbell preacher curl form"
+  },
   "preacher": {
     "name": "Preacher curl",
+    "retired": true,
     "muscle": "Biceps",
     "load": "dumbbell",
     "sub": "Incline dumbbell curl ya da kablo curl",
@@ -1268,9 +1309,9 @@ const PROGRAM = {
      düzenlemede ve ilerleme listesinde ayrı hareket olarak görünmeye devam eder. */
   retiredSlots: {
     UA: [{"key":"ua1","ex":"chestpress","sets":4,"reps":[6,10],"effort":"rir12","rest":150},{"key":"ua1s","ex":"smithbench","sets":4,"reps":[6,10],"effort":"rir12","rest":150},{"key":"ua4","ex":"dblateral","sets":3,"reps":[10,15],"effort":"lastFail","rest":90}],
-    LA: [{"key":"la3","ex":"calf","sets":3,"reps":[8,12],"effort":"lastFail","rest":75},{"key":"la1","ex":"legpress","sets":4,"reps":[8,12],"effort":"rir2","rest":150},{"key":"la4","ex":"cablelateral","sets":3,"reps":[12,15],"effort":"lastFail","rest":90},{"key":"la6","ex":"crunch","sets":3,"reps":[15,20],"effort":"rir12","rest":60,"optional":true}],
+    LA: [{"key":"la3","ex":"calf","sets":3,"reps":[8,12],"effort":"lastFail","rest":75},{"key":"la1","ex":"legpress","sets":4,"reps":[8,12],"effort":"rir2","rest":150},{"key":"la4","ex":"cablelateral","sets":3,"reps":[12,15],"effort":"lastFail","rest":90},{"key":"la6","ex":"crunch","sets":3,"reps":[15,20],"effort":"rir12","rest":60,"optional":true},{"key":"la5a","ex":"preacher","sets":3,"reps":[8,12],"effort":"lastFail","rest":60}],
     UB: [{"key":"ub1","ex":"smithincline","sets":4,"reps":[8,12],"effort":"rir12","rest":150},{"key":"ub6a","ex":"preacher","sets":3,"reps":[8,12],"effort":"lastFail","rest":90},{"key":"ub6b","ex":"pushdown","sets":3,"reps":[10,15],"effort":"lastFail","rest":90}],
-    LB: [{"key":"lb3","ex":"calf","sets":3,"reps":[8,12],"effort":"lastFail","rest":75},{"key":"lb5a","ex":"inclinecurl","sets":2,"reps":[8,12],"effort":"lastFail","rest":90},{"key":"lb5b","ex":"ohext","sets":2,"reps":[8,12],"effort":"lastFail","rest":90},{"key":"lb6","ex":"crunch","sets":3,"reps":[15,20],"effort":"rir12","rest":60,"optional":true}],
+    LB: [{"key":"lb3","ex":"calf","sets":3,"reps":[8,12],"effort":"lastFail","rest":75},{"key":"lb5a","ex":"inclinecurl","sets":2,"reps":[8,12],"effort":"lastFail","rest":90},{"key":"lb5b","ex":"ohext","sets":2,"reps":[8,12],"effort":"lastFail","rest":90},{"key":"lb6","ex":"crunch","sets":3,"reps":[15,20],"effort":"rir12","rest":60,"optional":true},{"key":"lb6p","ex":"preacher","sets":3,"reps":[8,12],"effort":"lastFail","rest":60}],
   },
 
   /* Yük azaltma (deload): kilolar aynı, set sayısı yarıya (yukarı yuvarlanır: 4→2, 3→2, 2→1), her set 3 tekrar kala. */

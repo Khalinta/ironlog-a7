@@ -8,7 +8,7 @@
 const STORAGE_KEY = 'ironlog.v1';            // Anahtar değişmez: eski kayıtlar aynı yerden okunur
 const DATA_VERSION = 7;
 const BACKUP_KEYS = ['ironlog.backup.pre-v3', 'ironlog.backup.pre-v4', 'ironlog.backup.pre-v5', 'ironlog.backup.pre-v6', 'ironlog.backup.pre-v7']; // sürüm geçişlerinden önceki birebir kopyalar
-const APP_VERSION = '5.3.1';
+const APP_VERSION = '5.4.0';
 const LATE_FINISH_MS = 30 * 60000;      // son setten bu kadar sonra bitirilirse bitiş zamanı son set sayılır
 const WAIST_EVERY_DAYS = 14;
 
